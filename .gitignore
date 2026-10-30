@@ -1,0 +1,12 @@
+# Claude's working files stay local: the repository is public (the owner's shared-repo rule)
+.claude/
+
+# Recordings and checked clips: licensed or personal audio and real site codes never go to git
+data/
+
+# Environments and caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/

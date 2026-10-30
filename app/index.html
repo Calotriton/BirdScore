@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BirdScore · From confidence score to true positive rate</title>
+<meta name="description" content="Plot the logistic regression of a bird identifier's confidence score against the probability of a correct identification. It runs in your browser and your files stay on your computer.">
+<meta name="theme-color" content="#f4f6f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1312" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="icons/logo.svg">
+<!-- The saved day or night choice, applied before the page is drawn so it does not flash -->
+<script>try { const t = localStorage.getItem('birdscore.theme'); if (t) document.documentElement.dataset.theme = t; } catch { }</script>
+<link rel="stylesheet" href="style.css">
+<script src="core.js" defer></script>
+<script src="plot.js" defer></script>
+<script src="i18n.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+<svg width="0" height="0" class="defs" aria-hidden="true">
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h3.6l2 2.2h7.4a2 2 0 0 1 2 2v7.8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M13.5 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13.5 3.5V9H19"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v10.5M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6.5 6.5 11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="brand">
+    <img class="logo" src="icons/logo.svg" width="40" height="40" alt="">
+    <div>
+      <h1>BirdScore</h1>
+      <p class="tagline" data-i18n>From confidence score to true positive rate</p>
+    </div>
+  </div>
+  <div class="top-right">
+    <button type="button" class="icon-button lang-button" id="lang">ES</button>
+    <button type="button" class="icon-button" id="theme">
+      <svg class="icon moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 13.2A8.5 8.5 0 1 1 10.8 3.5a6.6 6.6 0 0 0 9.7 9.7z"/></svg>
+      <svg class="icon sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="card data" aria-labelledby="data-title">
+    <div class="card-head">
+      <h2 id="data-title" data-i18n>Your detections</h2>
+      <button type="button" class="link danger" id="start-over" hidden data-i18n>Start over</button>
+    </div>
+    <p class="lede" data-i18n>Give BirdScore the detections you checked, sorted into positive (the identification was right) and negative (it was wrong).</p>
+
+    <fieldset class="segmented">
+      <legend class="sr-only" data-i18n>Where your detections are</legend>
+      <label><input type="radio" name="source" value="folders"><span data-i18n>Folders of clips</span></label>
+      <label><input type="radio" name="source" value="table"><span data-i18n>Excel or CSV file</span></label>
+    </fieldset>
+
+    <div id="from-folders" class="stack">
+      <ul id="species-list" class="species-list"></ul>
+      <div class="row-actions">
+        <button type="button" class="button small" id="add-species"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span data-i18n>Add species</span></button>
+        <button type="button" class="button small" id="add-tree"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span data-i18n>Add one folder with several species</span></button>
+      </div>
+      <p class="field-error" id="tree-error" role="alert" hidden></p>
+      <p class="hint" data-i18n>The score is the first number in each file name, for example 0.104 in 0.104_1_recording_12.0s_15.0s.wav.</p>
+      <p class="hint" data-i18n>Your browser may say the files will be uploaded. They are not: BirdScore only reads their names, here on your computer.</p>
+      <input type="file" id="folder-input" webkitdirectory multiple hidden>
+      <input type="file" id="tree-input" webkitdirectory multiple hidden>
+    </div>
+
+    <div id="from-table" class="stack" hidden>
+      <div class="file-row">
+        <button type="button" class="button" id="choose-table"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg><span data-i18n>Choose a file</span></button>
+        <span id="table-name" class="file-name"></span>
+        <input type="file" id="table-input" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xlsb,.xls,.ods" hidden>
+      </div>
+      <p class="hint" id="table-hint" data-i18n>Excel (.xlsx, .xls) or text (.csv, .tsv), with one row per detection.</p>
+      <p class="field-error" id="table-error" role="alert" hidden></p>
+      <div id="table-setup" class="stack" hidden>
+        <label class="field" id="sheet-field" hidden><span class="label" data-i18n>Sheet</span><select id="sheet"></select></label>
+        <div class="table-wrap short"><table id="table-preview"></table></div>
+        <div class="columns" id="columns">
+          <label class="field"><span class="label" data-i18n>Species</span><select data-role="species"></select></label>
+          <label class="field" id="fixed-species-field" hidden><span class="label" data-i18n>Species name</span><input type="text" id="fixed-species" autocomplete="off"></label>
+          <label class="field"><span class="label" data-i18n>Confidence score</span><select data-role="score"></select></label>
+          <label class="field"><span class="label" data-i18n>Positive or negative</span><select data-role="result"></select></label>
+          <label class="field"><span class="label" data-i18n>Date</span><select data-role="date"></select></label>
+          <label class="field"><span class="label" data-i18n>Time</span><select data-role="time"></select></label>
+          <label class="field"><span class="label" data-i18n>Site or recorder</span><select data-role="site"></select></label>
+          <label class="field"><span class="label" data-i18n>File name</span><select data-role="file"></select></label>
+        </div>
+        <div id="values" class="stack" hidden>
+          <h3 data-i18n>What each value means</h3>
+          <ul id="value-list" class="value-list"></ul>
+        </div>
+        <p id="table-status" class="status-line" role="status"></p>
+      </div>
+    </div>
+
+    <label class="field model"><span class="label"><span data-i18n>Model</span> <small data-i18n>(optional)</small></span>
+      <input type="text" id="model" autocomplete="off" data-i18n-attr="placeholder" placeholder="For example, BirdNET or Perch">
+      <small class="hint" data-i18n>It goes in the .csv files, not on the plot.</small></label>
+  </section>
+
+  <aside class="panel" aria-labelledby="settings-title">
+    <div class="panel-head">
+      <h2 id="settings-title" data-i18n>Plot settings</h2>
+      <span class="saved" data-i18n>Saved automatically</span>
+    </div>
+
+    <div class="group">
+      <h3 data-i18n>Threshold</h3>
+      <div class="field">
+        <span class="label" id="target-label" data-i18n>Probability of a correct identification</span>
+        <div class="chips" id="target-chips" role="group" aria-labelledby="target-label"></div>
+        <div class="add-row">
+          <input type="text" inputmode="decimal" id="target-new" placeholder="0.97" data-i18n-attr="placeholder aria-label" aria-label="Another probability" autocomplete="off">
+          <button type="button" class="button small" id="target-add" data-i18n>Add</button>
+        </div>
+        <p class="field-error" id="target-error" role="alert" hidden></p>
+      </div>
+      <div class="field">
+        <span class="label" id="score-label" data-i18n>Confidence score</span>
+        <div class="chips" id="score-chips" role="group" aria-labelledby="score-label"></div>
+        <div class="add-row">
+          <input type="text" inputmode="decimal" id="score-new" placeholder="0.50" data-i18n-attr="placeholder aria-label" aria-label="A confidence score to mark" autocomplete="off">
+          <button type="button" class="button small" id="score-add" data-i18n>Add</button>
+        </div>
+        <p class="field-error" id="score-error" role="alert" hidden></p>
+      </div>
+      <small class="hint" data-i18n>Each value turned on is marked on the curve: a probability shows the score that reaches it, a score shows its probability. Turn them all off for no threshold.</small>
+    </div>
+
+    <div class="group">
+      <h3 data-i18n>Layout</h3>
+      <fieldset class="choice">
+        <legend class="sr-only" data-i18n>Layout</legend>
+        <label class="radio"><input type="radio" name="layout" value="separate"><span data-i18n>One image per species</span></label>
+        <label class="radio"><input type="radio" name="layout" value="grid"><span data-i18n>One image with all species</span></label>
+      </fieldset>
+      <div class="form-row" id="grid-size" hidden>
+        <label class="field"><span class="label" data-i18n>Rows</span><input type="number" id="rows" min="1" max="30" step="1"></label>
+        <label class="field"><span class="label" data-i18n>Columns</span><input type="number" id="cols" min="1" max="8" step="1"></label>
+      </div>
+      <small class="hint" id="grid-note" role="status" hidden></small>
+    </div>
+
+    <div class="group">
+      <h3 data-i18n>Titles</h3>
+      <div class="stack tight" id="figure-titles" hidden>
+        <label class="field"><span class="label" data-i18n>Image title</span><input type="text" id="figure-title" autocomplete="off" data-i18n-attr="placeholder" placeholder="Optional"></label>
+        <label class="field"><span class="label" data-i18n>Image subtitle</span><input type="text" id="figure-subtitle" autocomplete="off" data-i18n-attr="placeholder" placeholder="Optional"></label>
+      </div>
+      <ul id="title-list" class="title-list"></ul>
+      <small class="hint" id="title-empty" data-i18n>The title of each plot starts as its species name. Add a species to change it.</small>
+      <label class="switch"><input type="checkbox" id="italic"><span data-i18n>Plot titles in italics, as for scientific names</span></label>
+    </div>
+
+    <div class="group">
+      <h3 data-i18n>Axes</h3>
+      <label class="field"><span class="label" data-i18n>X axis name</span><input type="text" id="x-label" autocomplete="off"></label>
+      <label class="field"><span class="label" data-i18n>Y axis name</span><input type="text" id="y-label" autocomplete="off"></label>
+    </div>
+
+    <div class="group">
+      <h3 data-i18n>Points</h3>
+      <label class="switch"><input type="checkbox" id="jitter"><span data-i18n>Jitter the points</span></label>
+      <label class="field" id="jitter-field"><span class="label" data-i18n>Amount of jitter</span>
+        <input type="range" id="jitter-amount" min="0.1" max="1" step="0.1"></label>
+      <small class="hint" data-i18n>Spreads the points up and down so they overlap less. Their scores do not change.</small>
+    </div>
+
+    <div class="group">
+      <h3 data-i18n>Language of the plot</h3>
+      <label class="field"><span class="sr-only" data-i18n>Language of the plot</span>
+        <select id="plot-lang"><option value="en">English</option><option value="es">Español</option></select></label>
+      <small class="hint" data-i18n>The axis names stay as you write them, in any language.</small>
+    </div>
+
+    <details class="advanced">
+      <summary data-i18n>Advanced</summary>
+      <label class="field"><span class="label" data-i18n>Score used in the regression</span>
+        <select id="scale">
+          <option value="logit" data-i18n>Logit of the score (recommended)</option>
+          <option value="raw" data-i18n>Score as it is</option>
+        </select></label>
+      <small class="hint block" data-i18n>Both draw the same axes. The logit keeps every threshold between 0 and 1, and is the method of Wood and Kahl (2024).</small>
+      <label class="switch"><input type="checkbox" id="band"><span data-i18n>Show the 95% confidence band</span></label>
+      <label class="switch"><input type="checkbox" id="observed"><span data-i18n>Show the observed share of positives per 0.1 of score</span></label>
+    </details>
+
+    <div class="panel-foot">
+      <button type="button" class="primary" id="generate" data-i18n>Generate plots</button>
+      <p class="hint" id="generate-hint"></p>
+    </div>
+  </aside>
+
+  <section class="card placeholder" id="placeholder">
+    <p data-i18n>Your plots, the thresholds and the .csv with your data will appear here.</p>
+  </section>
+
+  <section class="card results" id="results" tabindex="-1" aria-labelledby="results-title" hidden>
+    <div class="card-head">
+      <h2 id="results-title" data-i18n>Results</h2>
+      <p class="hint" id="results-summary"></p>
+    </div>
+    <p class="alert" id="stale" role="status" hidden data-i18n>Your data changed. Generate the plots again to include the changes.</p>
+
+    <div class="downloads">
+      <div class="download-group">
+        <h3 data-i18n>Plots</h3>
+        <div class="form-row">
+          <label class="field"><span class="label" data-i18n>Format</span>
+            <select id="format"><option value="png">PNG</option><option value="svg" data-i18n>SVG (vector)</option></select></label>
+          <label class="field" id="dpi-field"><span class="label" data-i18n>Resolution</span>
+            <select id="dpi"><option value="150">150 dpi</option><option value="300">300 dpi</option><option value="600">600 dpi</option></select></label>
+          <button type="button" class="button" id="download-plots"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span id="download-plots-text"></span></button>
+        </div>
+      </div>
+      <div class="download-group">
+        <h3 data-i18n>Data</h3>
+        <div class="form-row">
+          <label class="field"><span class="label" data-i18n>CSV style</span>
+            <select id="csv-format">
+              <option value="comma" data-i18n>Comma (R, Python)</option>
+              <option value="semicolon" data-i18n>Semicolon (Excel in Spanish)</option>
+            </select></label>
+          <button type="button" class="button" id="download-data"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n>Detections (.csv)</span></button>
+          <button type="button" class="button" id="download-results"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n>Thresholds (.csv)</span></button>
+        </div>
+      </div>
+      <p class="hint" id="download-status" role="status"></p>
+    </div>
+
+    <div id="figures" class="figures"></div>
+
+    <h3 data-i18n>Thresholds</h3>
+    <div class="table-wrap"><table id="results-table"></table></div>
+    <div id="notes" class="stack tight"></div>
+
+    <details class="advanced methods">
+      <summary data-i18n>How this was calculated</summary>
+      <div id="methods" class="stack tight"></div>
+    </details>
+  </section>
+</main>
+
+<footer>
+  <p><span data-i18n>BirdScore runs in your browser. Your files stay on your computer.</span>
+     <a href="https://github.com/Calotriton/BirdScore" data-i18n>Source code</a></p>
+</footer>
+
+<div id="tip" class="tip" aria-hidden="true" hidden></div>
+<p id="announce" class="sr-only" role="status"></p>
+
+<dialog id="ask">
+  <p data-i18n>Remove every species and result from this page? Your folders and files are not touched.</p>
+  <div class="row-actions end">
+    <button type="button" class="button" id="ask-keep" data-i18n>Keep</button>
+    <button type="button" class="primary danger" id="ask-remove" data-i18n>Remove</button>
+  </div>
+</dialog>
+
+<template id="species-template">
+  <li class="species-row">
+    <label class="field name"><span class="label" data-i18n>Species</span>
+      <input type="text" class="species-name" autocomplete="off" spellcheck="false" data-i18n-attr="placeholder" placeholder="For example, Turdus merula"></label>
+    <p class="field-error name-error" role="alert" hidden></p>
+    <div class="slot" data-part="pos">
+      <span class="slot-title"><span class="key pos" aria-hidden="true"></span><span data-i18n>Positive</span></span>
+      <button type="button" class="button small browse" data-i18n-attr="aria-label" aria-label="Browse the Positive folder"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span data-i18n>Browse folder</span></button>
+      <div class="slot-state"></div>
+    </div>
+    <div class="slot" data-part="neg">
+      <span class="slot-title"><span class="key neg" aria-hidden="true"></span><span data-i18n>Negative</span></span>
+      <button type="button" class="button small browse" data-i18n-attr="aria-label" aria-label="Browse the Negative folder"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span data-i18n>Browse folder</span></button>
+      <div class="slot-state"></div>
+    </div>
+    <button type="button" class="icon-button remove" data-i18n-attr="aria-label title" aria-label="Remove this species" title="Remove this species"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+  </li>
+</template>
+</body>
+</html>

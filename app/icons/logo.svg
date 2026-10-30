@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" role="img" aria-label="BirdScore">
+  <rect width="40" height="40" rx="10" fill="#0f766e"/>
+  <path d="M8 30C19 30 21 10 32 10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="20" cy="20" r="3.6" fill="#fff"/>
+</svg>
