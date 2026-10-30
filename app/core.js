@@ -311,6 +311,18 @@ const BirdScoreCore = (() => {
     return [...bands.values()].map((b) => ({ score: b.sum / b.n, share: b.correct / b.n, n: b.n }));
   }
 
+  // True and false positives per range of score. A range includes its lower limit, as a threshold keeps scores at or above it.
+  function precisionTable(clips, cuts) {
+    const row = (lo, hi, total = false) => {
+      const inside = clips.filter((c) => (lo === null || c.score >= lo) && (hi === null || c.score < hi));
+      const tp = inside.filter((c) => c.result === 'positive').length;
+      return { lo, hi, tp, fp: inside.length - tp, precision: inside.length ? tp / inside.length : null, total };
+    };
+    const limits = [...new Set(cuts)].sort((a, b) => a - b), lows = [null, ...limits];
+    const ranges = limits.length ? [...limits, null].map((hi, i) => row(lows[i], hi)) : [];
+    return [...ranges, row(null, null, true)];
+  }
+
   // A warning, not a test: most positives and most negatives come from different years or recorders
   function confounding(pos, neg) {
     const year = (c) => String(c.date ?? '').match(/\b(?:19|20)\d{2}\b/)?.[0];
@@ -456,7 +468,7 @@ const BirdScoreCore = (() => {
   return {
     AUDIO, parseClip, clipDetails, readFolder, groupsFromTree, recordsFromFolders,
     decodeText, parseDelimited, tableFrom, guessColumns, classifyResult, toScore, cellText, recordsFromTable, normal,
-    sigmoid, logit, toX, fitLogistic, probAt, scoreAt, readMark, curve, analyse, notes, minOf, maxOf,
+    sigmoid, logit, toX, fitLogistic, probAt, scoreAt, readMark, curve, analyse, notes, minOf, maxOf, precisionTable,
     toCsv, dataCsv, DATA_COLUMNS, crc32, pngWithDpi, zipStore,
   };
 })();

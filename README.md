@@ -18,6 +18,7 @@ Either of these, for one species or for many:
 - The thresholds to mark, each drawn as a vertical dashed line: a target probability, at the score that reaches it, or a score of your own. The numbers are in the table under the plots. What the line means belongs in your figure's caption.
 - The title and subtitle of each plot, on the left, in the centre or on the right. The title starts as the species name.
 - What appears at the top of the plot: the total positives and negatives, and each entry of the legend.
+- A precision table under each plot, if you want one. It gives the true positives, false positives and precision below and above 0.5 of confidence score and in total, or around any scores you choose.
 - One image per species, or one image with all species in a grid such as 2 × 3.
 - The names of the axes, which start as "Confidence score" and "True positive rate" in every language.
 - Jitter for the points, which never changes their scores.
@@ -29,6 +30,7 @@ Either of these, for one species or for many:
 - The plots, as PNG at 150, 300 or 600 dpi, or as SVG.
 - `birdscore_detections.csv`, with one row per detection and everything read from the files.
 - `birdscore_thresholds.csv`, with the thresholds and their intervals, the fitted coefficients and the notes for each species.
+- `birdscore_precision.csv`, with the numbers of the precision tables, when you show them.
 
 ## The method
 
@@ -43,6 +45,7 @@ The band is the 95% Wald interval on the logit scale. A threshold is the score w
 - The band and the intervals treat clips as independent. Clips from one recording or night often are not, so the real uncertainty can be larger.
 - The curve holds only across the scores you checked, so it is drawn only there. A threshold beyond them is not drawn, and the table gives it with a note.
 - If you chose clips by their result rather than by their score, the curve and the thresholds shift.
+- The precision table counts the clips you checked. If you chose how many to check in each range of scores, its Total row reflects that choice, not the precision across all the detections of the model.
 
 BirdScore warns about what it can see: too few clips of one kind, no overlap between positives and negatives, a curve that falls, thresholds outside the scores checked, and positives and negatives that come mostly from different years or recorders.
 

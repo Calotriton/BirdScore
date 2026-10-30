@@ -181,6 +181,21 @@
     </div>
 
     <div class="group">
+      <h3 data-i18n>Precision table</h3>
+      <label class="switch"><input type="checkbox" id="precision-table"><span data-i18n>Show a precision table under each plot</span></label>
+      <div class="field" id="precision-options">
+        <span class="label" id="cut-label" data-i18n>Split at these confidence scores</span>
+        <div class="chips" id="cut-chips" role="group" aria-labelledby="cut-label"></div>
+        <div class="add-row">
+          <input type="text" inputmode="decimal" id="cut-new" placeholder="0.30" data-i18n-attr="placeholder aria-label" aria-label="Another confidence score" autocomplete="off">
+          <button type="button" class="button small" id="cut-add" data-i18n>Add</button>
+        </div>
+        <p class="field-error" id="cut-error" role="alert" hidden></p>
+        <small class="hint" data-i18n>Each score adds a row. A clip exactly on a score goes in the range above it.</small>
+      </div>
+    </div>
+
+    <div class="group">
       <h3 data-i18n>Axes</h3>
       <label class="field"><span class="label" data-i18n>X axis name</span><input type="text" id="x-label" autocomplete="off"></label>
       <label class="field"><span class="label" data-i18n>Y axis name</span><input type="text" id="y-label" autocomplete="off"></label>
@@ -257,6 +272,7 @@
             </select></label>
           <button type="button" class="button" id="download-data"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n>Detections (.csv)</span></button>
           <button type="button" class="button" id="download-results"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n>Thresholds (.csv)</span></button>
+          <button type="button" class="button" id="download-precision" hidden><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n>Precision (.csv)</span></button>
         </div>
       </div>
       <p class="hint" id="download-status" role="status"></p>

@@ -274,6 +274,40 @@ def test_a_threshold_the_raw_scale_cannot_reach(page):
     assert not m["reachable"]
 
 
+def precision_rows(page, pos, neg, cuts):
+    return js(page, f"{CORE}.precisionTable(a[0], a[1])", clips(pos, neg), cuts)
+
+
+def test_precision_table_by_default(page):
+    rows = precision_rows(page, [0.2, 0.5, 0.9, 0.95], [0.1, 0.49, 0.5], [0.5])
+    assert [(r["lo"], r["hi"], r["tp"], r["fp"], r["total"]) for r in rows] == [
+        (None, 0.5, 1, 2, False),      # a clip exactly on 0.5 goes in the range above
+        (0.5, None, 3, 1, False),
+        (None, None, 4, 3, True),
+    ]
+    assert [r["precision"] for r in rows] == pytest.approx([1 / 3, 3 / 4, 4 / 7])
+
+
+def test_precision_table_with_several_scores(page):
+    rows = precision_rows(page, [0.2, 0.4, 0.6, 0.9], [0.1, 0.35, 0.7], [0.8, 0.3, 0.5, 0.3])    # unsorted, and one repeated
+    assert [(r["lo"], r["hi"]) for r in rows] == [(None, 0.3), (0.3, 0.5), (0.5, 0.8), (0.8, None), (None, None)]
+    assert [(r["tp"], r["fp"]) for r in rows] == [(1, 1), (1, 1), (1, 1), (1, 0), (4, 3)]
+    ranges, total = rows[:-1], rows[-1]
+    assert sum(r["tp"] for r in ranges) == total["tp"] and sum(r["fp"] for r in ranges) == total["fp"]
+
+
+def test_precision_table_with_an_empty_range_or_no_score(page):
+    rows = precision_rows(page, [0.6, 0.9], [0.7], [0.5])
+    assert (rows[0]["tp"], rows[0]["fp"], rows[0]["precision"]) == (0, 0, None)      # no clips, so no precision, rather than 0
+    rows = precision_rows(page, [0.6, 0.9], [0.7], [])
+    assert len(rows) == 1 and rows[0]["total"] and rows[0]["precision"] == pytest.approx(2 / 3)
+
+
+def test_precision_table_with_no_negatives(page):
+    rows = precision_rows(page, [0.2, 0.9], [], [0.5])
+    assert [r["precision"] for r in rows] == [1, 1, 1]
+
+
 def test_confounding_with_year_and_recorder(page):
     before = [{"species": "s", "result": "positive", "score": 0.3 + i / 100, "date": "2022-05-01", "site": "A"} for i in range(30)]
     after = [{"species": "s", "result": "negative", "score": 0.2 + i / 100, "date": "2025-04-01", "site": "B"} for i in range(30)]

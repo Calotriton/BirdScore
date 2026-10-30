@@ -13,6 +13,7 @@
     source: 'folders', model: '', targets: [0.9], scores: [], layout: 'separate', rows: '', cols: '',
     figureTitle: '', figureSubtitle: '', titles: {}, italic: true, titleAlign: 'left',
     showCounts: true, legendPoints: true, legendCurve: true, legendBand: true, legendThreshold: true, legendObserved: true,
+    precisionTable: false, precisionCuts: [0.5],
     xLabel: 'Confidence score', yLabel: 'True positive rate',       // English by default in every language, by the owner's choice
     jitter: true, jitterAmount: 0.6, colourBlind: false, plotLang: getLang(), scale: 'logit', band: true, observed: false,
     format: 'png', dpi: 300, csvFormat: 'comma',
@@ -317,18 +318,17 @@
   }
   function renderChips() {
     const toggle = (list, v) => { const i = list.indexOf(v); if (i >= 0) list.splice(i, 1); else list.push(v); };
-    const box = $('target-chips'), scoreBox = $('score-chips');
-    const targets = [...new Set([...PRESET_TARGETS, ...settings.targets])].sort((a, b) => a - b);
-    box.replaceChildren(...targets.map((v) => chip(v, settings.targets.includes(v), () => {
-      toggle(settings.targets, v);
-      settingsChanged(); renderChips();
-      (box.querySelector(`[data-value="${v}"]`) ?? $('target-new')).focus();
-    })));
-    scoreBox.replaceChildren(...[...settings.scores].sort((a, b) => a - b).map((v) => chip(v, true, () => {
-      toggle(settings.scores, v);
-      settingsChanged(); renderChips();
-      $('score-new').focus();
-    })));
+    const fill = (box, presets, list, input) => {
+      const values = [...new Set([...presets, ...list])].sort((a, b) => a - b);
+      box.replaceChildren(...values.map((v) => chip(v, list.includes(v), () => {
+        toggle(list, v);
+        settingsChanged(); renderChips();
+        (box.querySelector(`[data-value="${v}"]`) ?? input).focus();    // a value of the user's own goes when turned off
+      })));
+    };
+    fill($('target-chips'), PRESET_TARGETS, settings.targets, $('target-new'));
+    fill($('score-chips'), [], settings.scores, $('score-new'));
+    fill($('cut-chips'), [0.5], settings.precisionCuts, $('cut-new'));
   }
   function addValue(inputId, errorId, list, valid, message) {
     const input = $(inputId), error = $(errorId), v = parseDecimal(input.value);
@@ -343,10 +343,13 @@
   }
   const addTarget = () => addValue('target-new', 'target-error', settings.targets, (v) => v > 0 && v < 1, 'Write a probability above 0 and below 1, for example 0.97.');
   const addScore = () => addValue('score-new', 'score-error', settings.scores, (v) => v >= 0 && v <= 1, 'Write a score from 0 to 1, for example 0.50.');
+  const addCut = () => addValue('cut-new', 'cut-error', settings.precisionCuts, (v) => v > 0 && v < 1, 'Write a score above 0 and below 1, for example 0.30.');
   $('target-add').addEventListener('click', addTarget);
   $('score-add').addEventListener('click', addScore);
+  $('cut-add').addEventListener('click', addCut);
   $('target-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTarget(); });
   $('score-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') addScore(); });
+  $('cut-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') addCut(); });
 
   const speciesLabel = (name) => name.replace(/_/g, ' ');
   const titleOf = (name) => settings.titles[name]?.title || speciesLabel(name);
@@ -432,6 +435,8 @@
         positive: T('Positive'), negative: T('Negative'), curve: T('Logistic regression'), band: T('95% confidence band'),
         threshold: T('Threshold'), observed: T('Observed share of positives'),
         noCurve: T('No curve can be fitted'), figureName: T('Logistic regressions'),
+        score: T('Confidence score'), tp: T('True positives'), fp: T('False positives'), precision: T('Precision'),
+        total: T('Total'), between: T('≥ {lo} and < {hi}'),
       },
       palette: paletteName(), align: settings.titleAlign,
       show: {
@@ -458,6 +463,7 @@
             .map(([n, one, other]) => (n === 1 ? tIn(lang, one) : tIn(lang, other, { n: numIn(lang, n) }))).join(' · '),
           clips: a.clips, low: a.low, high: a.high, marks: read, bands: a.bands, fit,
           curve: fit ? Core.curve(fit, scale, a.low, a.high) : null,
+          table: settings.precisionTable ? Core.precisionTable(a.clips, settings.precisionCuts) : null,
         },
       };
     });
@@ -476,6 +482,7 @@
     $('results-summary').textContent = tn(state.analyses.length, 'One species, {m} clips', '{n} species, {m} clips', { m: num(state.records.length) });
     $('download-plots-text').textContent = state.figures.length > 1 ? t('Download all (.zip)') : t('Download plot');
     $('dpi-field').hidden = settings.format !== 'png';
+    $('download-precision').hidden = !settings.precisionTable;
     renderResultsTable(marks);
     renderMethods();
   }
@@ -614,6 +621,7 @@
         : t('BirdScore fits one logistic regression per species by maximum likelihood, with no penalty: p = 1 / (1 + exp(−(b0 + b1 · x))), where p is the probability that a detection is correct and x is the confidence score itself.'),
       t('The band is the 95% Wald interval, computed on the logit scale. A threshold is the score at which the curve reaches the chosen probability, and its interval runs between the scores at which the band reaches it. Both treat clips as independent. Clips from one recording or night often are not, so the real uncertainty can be larger.'),
       t('The curve describes the detections you checked: this species, this model and these recordings. It is drawn only across the scores you checked. It estimates how often a detection at a given score is correct, which is a kind of precision. It says nothing about the calls the model missed (recall), which statisticians usually call the true positive rate.'),
+      ...(settings.precisionTable ? [t('The precision table counts the clips you checked in each range of scores, and precision is the true positives divided by the true and false positives. If you chose how many clips to check in each range, the Total row reflects that choice, not the precision across all the detections of the model.')] : []),
     ].map((text) => h('p', { className: 'prose', textContent: text })));
     const link = h('a', { href: 'https://doi.org/10.1007/s10336-024-02144-5', textContent: 'doi:10.1007/s10336-024-02144-5' });
     box.append(h('p', { className: 'prose hint' }, 'Wood CM, Kahl S (2024). Guidelines for appropriate use of BirdNET scores and other detector outputs. Journal of Ornithology. ', link));
@@ -668,10 +676,20 @@
     saveFile([Core.dataCsv(state.records, settings.model, settings.csvFormat)], 'text/csv;charset=utf-8', 'birdscore_detections.csv');
   });
 
+  const round = (v) => (v == null || !Number.isFinite(v) ? null : Math.round(v * 1e4) / 1e4);
+  function precisionCsv() {
+    const header = ['species', 'model', 'range', 'score_from', 'score_to', 'true_positives', 'false_positives', 'precision'];
+    const name = (r) => (r.total ? 'total' : r.lo === null ? `below ${r.hi}` : r.hi === null ? `${r.lo} and above` : `${r.lo} to below ${r.hi}`);
+    const rows = state.view.flatMap((v) => v.panel.table.map((r) => [v.a.species, settings.model, name(r), r.lo, r.hi, r.tp, r.fp, round(r.precision)]));
+    return Core.toCsv(header, rows, settings.csvFormat);
+  }
+  $('download-precision').addEventListener('click', () => {
+    saveFile([precisionCsv()], 'text/csv;charset=utf-8', 'birdscore_precision.csv');
+  });
+
   function resultsCsv() {
     const marks = activeMarks(), label = (m) => (m.kind === 'p' ? `score_at_p_${m.value}` : `p_at_score_${m.value}`);
-    const round = (v) => (v == null || !Number.isFinite(v) ? null : Math.round(v * 1e4) / 1e4);
-    const header = ['species', 'model', 'score_scale', 'clips', 'positive', 'negative', 'recordings', 'lowest_score', 'highest_score',
+    const header =['species', 'model', 'score_scale', 'clips', 'positive', 'negative', 'recordings', 'lowest_score', 'highest_score',
       'intercept', 'slope', 'aic_logit', 'aic_raw', ...marks.flatMap((m) => [label(m), `${label(m)}_ci_low`, `${label(m)}_ci_high`]), 'notes'];
     const rows = state.view.map((v) => {
       const a = v.a, fit = a.fits[settings.scale];
@@ -741,6 +759,7 @@
   bind('legend-threshold', 'legendThreshold', checked);
   bind('legend-observed', 'legendObserved', checked);
   bind('colour-blind', 'colourBlind', checked);
+  bind('precision-table', 'precisionTable', checked);
   bind('x-label', 'xLabel');
   bind('y-label', 'yLabel');
   bind('jitter', 'jitter', checked);
@@ -761,6 +780,8 @@
   $('band').addEventListener('change', syncLegendSwitches);
   $('observed').addEventListener('change', syncLegendSwitches);
   syncLegendSwitches();
+  $('precision-table').addEventListener('change', () => { $('precision-options').hidden = !settings.precisionTable; });
+  $('precision-options').hidden = !settings.precisionTable;
   document.querySelectorAll('input[name="title-align"]').forEach((input) => {
     input.checked = input.value === settings.titleAlign;
     input.addEventListener('change', () => { settings.titleAlign = input.value; settingsChanged(); });
