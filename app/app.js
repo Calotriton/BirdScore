@@ -435,8 +435,6 @@
         positive: T('Positive'), negative: T('Negative'), curve: T('Logistic regression'), band: T('95% confidence band'),
         threshold: T('Threshold'), observed: T('Observed share of positives'),
         noCurve: T('No curve can be fitted'), figureName: T('Logistic regressions'),
-        score: T('Confidence score'), tp: T('True positives'), fp: T('False positives'), precision: T('Precision'),
-        total: T('Total'), between: T('≥ {lo} and < {hi}'),
       },
       palette: paletteName(), align: settings.titleAlign,
       show: {
@@ -457,13 +455,13 @@
       const read = fit && fit.b1 > 0 ? marks.map((m) => Core.readMark(fit, scale, m, a.low, a.high)) : [];
       return {
         a, read,
+        table: settings.precisionTable ? Core.precisionTable(a.clips, settings.precisionCuts) : null,
         panel: {
           species: a.species, title: titleOf(a.species), subtitle: subtitleOf(a.species), seed: a.species,
           counts: [[a.nPos, '1 positive', '{n} positive'], [a.nNeg, '1 negative', '{n} negative']]
             .map(([n, one, other]) => (n === 1 ? tIn(lang, one) : tIn(lang, other, { n: numIn(lang, n) }))).join(' · '),
           clips: a.clips, low: a.low, high: a.high, marks: read, bands: a.bands, fit,
           curve: fit ? Core.curve(fit, scale, a.low, a.high) : null,
-          table: settings.precisionTable ? Core.precisionTable(a.clips, settings.precisionCuts) : null,
         },
       };
     });
@@ -476,9 +474,9 @@
     const unique = (base) => { let name = base, k = 2; while (taken.has(name)) name = `${base}_${k++}`; taken.add(name); return name; };
     const slug = (s) => s.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
     state.figures = grid
-      ? [{ name: 'birdscore_all_species', label: t('All species'), ...Plot.figure(panels, { ...o, cols: size.cols, rows: size.rows }) }]
-      : panels.map((p) => ({ name: unique(`birdscore_${slug(p.species)}`), label: p.title, ...Plot.figure([p], o) }));
-    $('figures').replaceChildren(...state.figures.map(figureElement));
+      ? [{ name: 'birdscore_all_species', label: t('All species'), views: state.view, ...Plot.figure(panels, { ...o, cols: size.cols, rows: size.rows }) }]
+      : state.view.map((v) => ({ name: unique(`birdscore_${slug(v.a.species)}`), label: v.panel.title, views: [v], ...Plot.figure([v.panel], o) }));
+    $('figures').replaceChildren(...state.figures.flatMap((fig) => (settings.precisionTable ? [figureElement(fig), precisionElement(fig)] : [figureElement(fig)])));
     $('results-summary').textContent = tn(state.analyses.length, 'One species, {m} clips', '{n} species, {m} clips', { m: num(state.records.length) });
     $('download-plots-text').textContent = state.figures.length > 1 ? t('Download all (.zip)') : t('Download plot');
     $('dpi-field').hidden = settings.format !== 'png';
@@ -500,6 +498,30 @@
     if (state.figures.length === 1) return h('figure', { className: 'plot' }, canvas);     // the download above is the same one
     return h('figure', { className: 'plot' }, canvas,
       h('figcaption', {}, h('span', { className: 'sp', textContent: fig.label }), h('div', { className: 'row-actions' }, button('png', 'PNG'), button('svg', 'SVG'))));
+  }
+
+  // On the page under each image, not in it. Under a grid, one table with a column of species.
+  function precisionElement(fig) {
+    const limit = (v) => num(v, 2, 3), many = fig.views.length > 1;
+    const rangeName = (r) => {
+      if (r.total) return t('Total');
+      if (r.lo === null) return `< ${limit(r.hi)}`;
+      if (r.hi === null) return `≥ ${limit(r.lo)}`;
+      return t('≥ {lo} and < {hi}', { lo: limit(r.lo), hi: limit(r.hi) });
+    };
+    const words = many ? [t('Species'), t('Confidence score')] : [t('Confidence score')];
+    const textCell = (textContent) => h('td', { className: 'text', textContent });
+    const table = h('table', { className: 'precision-table' },
+      h('thead', {}, h('tr', {},
+        ...words.map((textContent) => h('th', { scope: 'col', className: 'text', textContent })),
+        ...[t('True positives'), t('False positives'), t('Precision')].map((textContent) => h('th', { scope: 'col', textContent })))),
+      h('tbody', {}, ...fig.views.flatMap((v) => v.table.map((r) => h('tr', { className: r.total ? 'total' : '' },
+        ...(many ? [textCell(speciesLabel(v.a.species))] : []), textCell(rangeName(r)),
+        h('td', { textContent: num(r.tp) }), h('td', { textContent: num(r.fp) }),
+        h('td', { textContent: r.precision === null ? '–' : num(r.precision, 2) }))))));
+    const title = h('h3', {}, t('Precision table'));
+    if (state.figures.length > 1) title.append(h('span', { className: 'h3-note', textContent: ` · ${fig.label}` }));
+    return h('div', { className: 'stack tight precision' }, title, h('div', { className: 'table-wrap' }, table));
   }
 
   // The hover layer: a crosshair reads the curve, and a point names its clip. The table holds the same values.
@@ -680,7 +702,7 @@
   function precisionCsv() {
     const header = ['species', 'model', 'range', 'score_from', 'score_to', 'true_positives', 'false_positives', 'precision'];
     const name = (r) => (r.total ? 'total' : r.lo === null ? `below ${r.hi}` : r.hi === null ? `${r.lo} and above` : `${r.lo} to below ${r.hi}`);
-    const rows = state.view.flatMap((v) => v.panel.table.map((r) => [v.a.species, settings.model, name(r), r.lo, r.hi, r.tp, r.fp, round(r.precision)]));
+    const rows = state.view.flatMap((v) => v.table.map((r) => [v.a.species, settings.model, name(r), r.lo, r.hi, r.tp, r.fp, round(r.precision)]));
     return Core.toCsv(header, rows, settings.csvFormat);
   }
   $('download-precision').addEventListener('click', () => {

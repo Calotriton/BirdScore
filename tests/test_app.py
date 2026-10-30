@@ -327,35 +327,40 @@ def two_decimals(x):
     return f"{math.floor(x * 100 + 0.5) / 100:.2f}"
 
 
-def table_cells(page, i=0):
-    """The precision table's texts, in drawing order, from the first figure: everything after its first column's header."""
-    texts = page.locator(".plot-canvas svg").nth(i).locator("text").all_text_contents()
-    head = len(texts) - 1 - texts[::-1].index("True positives")
-    return texts[head - 1:]
+def precision_rows(page, i=0):
+    """A precision table on the page, as rows of texts, with its header first."""
+    table = page.locator(".precision-table").nth(i)
+    return [table.locator("th").all_inner_texts(), *table.locator("tbody tr").evaluate_all("(rows) => rows.map((r) => [...r.cells].map((c) => c.textContent))")]
+
+
+def wait_for_rows(page, count):
+    page.wait_for_function("(n) => document.querySelectorAll('.precision-table tbody tr').length === n", arg=count)
 
 
 def test_precision_table_is_optional_and_right_by_default(page, one_species):
     scores, verdicts = one_species
     page.click("#generate")
-    height = lambda: page.locator(".plot-canvas svg").evaluate("(s) => s.viewBox.baseVal.height")
-    without = height()
+    image = svg_of(page)
     assert not page.is_checked("#precision-table") and page.is_hidden("#precision-options") and page.is_hidden("#download-precision")
-    assert "True positives" not in svg_of(page)
+    assert page.locator(".precision-table").count() == 0
     page.check("#precision-table")                            # at once, with no click on Generate
-    page.wait_for_function("document.querySelector('.plot-canvas svg').outerHTML.includes('True positives')")
-    assert height() > without and page.is_visible("#precision-options") and page.is_visible("#download-precision")
+    page.wait_for_selector(".precision-table")
+    assert page.is_visible("#precision-options") and page.is_visible("#download-precision")
     low, high = verdicts[scores < 0.5], verdicts[scores >= 0.5]
-    expected = ["Confidence score", "True positives", "False positives", "Precision",
-                "< 0.50", str(low.sum()), str(len(low) - low.sum()), two_decimals(low.mean()),
-                "≥ 0.50", str(high.sum()), str(len(high) - high.sum()), two_decimals(high.mean()),
-                "Total", str(verdicts.sum()), str(len(verdicts) - verdicts.sum()), two_decimals(verdicts.mean())]
-    assert table_cells(page) == expected
+    expected = [["Confidence score", "True positives", "False positives", "Precision"],
+                ["< 0.50", str(low.sum()), str(len(low) - low.sum()), two_decimals(low.mean())],
+                ["≥ 0.50", str(high.sum()), str(len(high) - high.sum()), two_decimals(high.mean())],
+                ["Total", str(verdicts.sum()), str(len(verdicts) - verdicts.sum()), two_decimals(verdicts.mean())]]
+    assert precision_rows(page) == expected
+    # On the page, right under the image, and not in it
+    assert svg_of(page) == image and "True positives" not in image
+    assert page.evaluate("document.querySelector('.plot').nextElementSibling.querySelector('.precision-table') !== null")
     page.reload()
-    page.wait_for_selector(".plot-canvas svg")
-    assert page.is_checked("#precision-table") and table_cells(page) == expected
+    page.wait_for_selector(".precision-table")
+    assert page.is_checked("#precision-table") and precision_rows(page) == expected
     page.uncheck("#precision-table")
-    page.wait_for_function("!document.querySelector('.plot-canvas svg').outerHTML.includes('True positives')")
-    assert height() == without
+    page.wait_for_selector(".precision-table", state="detached")
+    assert svg_of(page) == image
 
 
 def test_precision_table_with_scores_chosen_by_the_user(page, one_species):
@@ -366,11 +371,11 @@ def test_precision_table_with_scores_chosen_by_the_user(page, one_species):
     page.press("#cut-new", "Enter")
     page.fill("#cut-new", "0.8")
     page.click("#cut-add")
-    page.wait_for_function("document.querySelector('.plot-canvas svg').outerHTML.includes('≥ 0.80')")
-    cells = table_cells(page)
-    assert [cells[i] for i in range(4, len(cells), 4)] == ["< 0.30", "≥ 0.30 and < 0.50", "≥ 0.50 and < 0.80", "≥ 0.80", "Total"]
+    wait_for_rows(page, 5)
+    body = precision_rows(page)[1:]
+    assert [row[0] for row in body] == ["< 0.30", "≥ 0.30 and < 0.50", "≥ 0.50 and < 0.80", "≥ 0.80", "Total"]
     middle = verdicts[(scores >= 0.5) & (scores < 0.8)]
-    assert cells[12:16] == ["≥ 0.50 and < 0.80", str(middle.sum()), str(len(middle) - middle.sum()), two_decimals(middle.mean())]
+    assert body[2] == ["≥ 0.50 and < 0.80", str(middle.sum()), str(len(middle) - middle.sum()), two_decimals(middle.mean())]
     raw, name = download(page, "#download-precision")
     rows = read_csv(raw)
     assert name == "birdscore_precision.csv" and len(rows) == 5
@@ -381,11 +386,8 @@ def test_precision_table_with_scores_chosen_by_the_user(page, one_species):
 
     for value in ["0.3", "0.5", "0.8"]:                       # only the total is left, and a chosen score goes when turned off
         page.click(f'#cut-chips [data-value="{value}"]')
-    page.wait_for_function("""() => {
-      const texts = [...document.querySelectorAll('.plot-canvas svg text')].map((t) => t.textContent);
-      return texts[texts.lastIndexOf('True positives') + 3] === 'Total';
-    }""")
-    assert len(table_cells(page)) == 8
+    wait_for_rows(page, 1)
+    assert precision_rows(page)[1][0] == "Total"
     assert page.locator('#cut-chips [data-value="0.3"]').count() == 0 and page.locator('#cut-chips [data-value="0.5"]').count() == 1
 
 
@@ -399,21 +401,39 @@ def test_a_bad_precision_score_says_how_to_fix_it(page):
     assert page.is_hidden("#cut-error") and page.locator('#cut-chips [data-value="0.7"]').get_attribute("aria-pressed") == "true"
 
 
-@pytest.mark.parametrize("lang, positives, between", [("es", "Verdaderos positivos", "≥ 0,30 y < 0,50"), ("ca", "Veritables positius", "≥ 0,30 i < 0,50")])
-def test_precision_table_in_other_languages(page, one_species, lang, positives, between):
+@pytest.mark.parametrize("lang, head, between", [
+    ("es", ["Puntuación de confianza", "Verdaderos positivos", "Falsos positivos", "Precisión"], "≥ 0,30 y < 0,50"),
+    ("ca", ["Puntuació de confiança", "Veritables positius", "Falsos positius", "Precisió"], "≥ 0,30 i < 0,50"),
+])
+def test_precision_table_follows_the_language_of_the_site(page, one_species, lang, head, between):
     page.check("#precision-table")
     page.fill("#cut-new", "0.3")
     page.click("#cut-add")
     page.click("#generate")
     page.select_option("#lang", lang)
-    page.wait_for_function(f"document.querySelector('.plot-canvas svg').outerHTML.includes('{positives}')")
-    texts = page.locator(".plot-canvas svg text").all_text_contents()
-    assert between in texts and texts.count("Confidence score") == 2           # the first column follows the X axis's name, as the owner set it
-    page.fill("#x-label", "Mi puntuación")
-    page.wait_for_function("document.querySelectorAll('.plot-canvas svg text').length > 0 && [...document.querySelectorAll('.plot-canvas svg text')].filter((t) => t.textContent === 'Mi puntuación').length === 2")
+    page.wait_for_function("(h) => document.querySelector('.precision-table th').textContent === h", arg=head[0])
+    rows = precision_rows(page)
+    assert rows[0] == head and rows[2][0] == between
+    page.select_option("#plot-lang", "en")                    # the plot's own language is for the image
+    page.wait_for_function("document.querySelector('.plot-canvas svg').outerHTML.includes('Logistic regression')")
+    assert precision_rows(page)[0] == head
 
 
-def test_precision_table_in_a_grid_and_in_the_files(page, tmp_path):
+def test_precision_tables_with_one_image_per_species(page, tmp_path):
+    names = ["Turdus merula", "Parus major"]
+    for i, name in enumerate(names):
+        make_clips(tmp_path / str(i), n=60, seed=i + 1)
+        add_species(page, i, name, tmp_path / str(i))
+    page.check("#precision-table")
+    page.click("#generate")
+    assert page.locator(".plot").count() == 2 and page.locator(".precision-table").count() == 2
+    for i, name in enumerate(names):
+        assert precision_rows(page, i)[0][0] == "Confidence score"        # one species, so no column of species
+        assert page.locator(".precision h3").nth(i).inner_text().endswith(name)
+        assert page.evaluate("(i) => document.querySelectorAll('.plot')[i].nextElementSibling.querySelector('.precision-table') === document.querySelectorAll('.precision-table')[i]", i)
+
+
+def test_precision_table_under_a_grid_leaves_the_files_alone(page, tmp_path):
     names = ["Turdus merula", "Parus major", "Erithacus rubecula"]
     for i, name in enumerate(names):
         make_clips(tmp_path / str(i), n=60, seed=i + 1)
@@ -422,26 +442,20 @@ def test_precision_table_in_a_grid_and_in_the_files(page, tmp_path):
     page.fill("#rows", "2")
     page.fill("#cols", "2")
     page.click("#generate")
-    size = lambda: page.locator(".plot-canvas svg").evaluate("(s) => [s.viewBox.baseVal.width, s.viewBox.baseVal.height]")
-    before = size()
+    image = svg_of(page)
+    png = png_info(download(page, "#download-plots")[0])[:2]
     page.check("#precision-table")
-    page.wait_for_function("document.querySelector('.plot-canvas svg').outerHTML.includes('True positives')")
-    after = size()
-    assert after[0] == before[0] and after[1] > before[1]
-    svg = svg_of(page)
-    assert svg.count(">True positives<") == 3 and svg.count(">Total<") == 3    # one table per plot
-    assert svg.count(">0.4<") >= 3 and svg.count(">Confidence score<") == 6    # each plot has its own x axis, and each table its header
-    # Nothing runs off the figure: every text sits inside it
-    bottoms = page.locator(".plot-canvas svg text").evaluate_all("(t) => t.map((x) => x.getBBox().y + x.getBBox().height)")
-    assert max(bottoms) < after[1]
+    page.wait_for_selector(".precision-table")
+    assert svg_of(page) == image and page.locator(".precision-table").count() == 1
+    rows = precision_rows(page)
+    assert rows[0] == ["Species", "Confidence score", "True positives", "False positives", "Precision"] and len(rows) == 10
+    assert [rows[i][0] for i in (1, 4, 7)] == names and [rows[i][1] for i in (3, 6, 9)] == ["Total"] * 3
+    assert png_info(download(page, "#download-plots")[0])[:2] == png            # the table does not go in the image
     page.select_option("#format", "svg")
-    raw, _ = download(page, "#download-plots")
-    assert raw.decode().count(">Precision<") == 3             # the table goes in the file
-    page.select_option("#format", "png")
-    page.wait_for_selector("#dpi-field")
-    assert png_info(download(page, "#download-plots")[0])[1] == round(after[1] * 300 / 96)
-    rows = read_csv(download(page, "#download-precision")[0])
-    assert sorted({r["species"] for r in rows}) == sorted(names) and len(rows) == 9
+    page.wait_for_selector("#dpi-field", state="hidden")
+    assert "True positives" not in download(page, "#download-plots")[0].decode()
+    csv_rows = read_csv(download(page, "#download-precision")[0])
+    assert sorted({r["species"] for r in csv_rows}) == sorted(names) and len(csv_rows) == 9
 
 
 def test_precision_table_when_no_curve_can_be_fitted(page, tmp_path):
@@ -451,7 +465,20 @@ def test_precision_table_when_no_curve_can_be_fitted(page, tmp_path):
     page.check("#precision-table")
     page.click("#generate")
     assert "No curve can be fitted" in svg_of(page)
-    assert table_cells(page)[-1] == "1.00"                    # with no negatives, the total's precision is 1
+    assert precision_rows(page)[-1][-1] == "1.00"             # with no negatives, the total's precision is 1
+
+
+def test_a_precision_table_with_many_digits_does_not_widen_the_page(browser, site, tmp_path):
+    context = browser.new_context(viewport={"width": 320, "height": 800}, locale="ca-ES")
+    page = context.new_page()
+    page.goto(site)
+    make_clips(tmp_path / "a", n=60)
+    add_species(page, 0, "Turdus merula", tmp_path / "a")
+    page.check("#precision-table")
+    page.click("#generate")
+    page.wait_for_selector(".precision-table")
+    assert page.evaluate("document.documentElement.scrollWidth") <= 320
+    context.close()
 
 
 def test_scale_switch_matches_a_raw_fit(page, one_species):
@@ -983,9 +1010,6 @@ def test_every_plot_setting_redraws_at_once(page, tmp_path):
         "legend, curve": lambda: page.uncheck("#legend-curve"),
         "legend, band": lambda: page.uncheck("#legend-band"),
         "legend, threshold": lambda: page.uncheck("#legend-threshold"),
-        "precision table": lambda: page.check("#precision-table"),
-        "a precision score": lambda: add("#cut-new", "#cut-add", "0.3"),
-        "a precision chip": lambda: page.click('#cut-chips [data-value="0.5"]'),
         "x axis": lambda: page.fill("#x-label", "X name"),
         "y axis": lambda: page.fill("#y-label", "Y name"),
         "jitter amount": amount,

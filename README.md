@@ -18,7 +18,7 @@ Either of these, for one species or for many:
 - The thresholds to mark, each drawn as a vertical dashed line: a target probability, at the score that reaches it, or a score of your own. The numbers are in the table under the plots. What the line means belongs in your figure's caption.
 - The title and subtitle of each plot, on the left, in the centre or on the right. The title starts as the species name.
 - What appears at the top of the plot: the total positives and negatives, and each entry of the legend.
-- A precision table under each plot, if you want one. It gives the true positives, false positives and precision below and above 0.5 of confidence score and in total, or around any scores you choose.
+- A precision table on the page under each image, if you want one, which is not part of the image. It gives the true positives, false positives and precision below and above 0.5 of confidence score and in total, or around any scores you choose.
 - One image per species, or one image with all species in a grid such as 2 × 3.
 - The names of the axes, which start as "Confidence score" and "True positive rate" in every language.
 - Jitter for the points, which never changes their scores.

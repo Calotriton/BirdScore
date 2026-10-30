@@ -11,8 +11,8 @@ const BirdScorePlot = (() => {
   const FONT = "'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,Roboto,'Helvetica Neue',Arial,sans-serif";
   const YMIN = -0.08, YMAX = 1.08, JITTER = 0.06, TICKS = [0, 0.2, 0.4, 0.6, 0.8, 1];
   const MAX_POINTS = 5000;   // per group; beyond this an SVG gets too heavy to draw, and the fit still uses every clip
-  const BIG = { w: 660, h: 380, left: 64, gap: 0, right: 28, title: 21, sub: 14, counts: 12.5, tick: 12.5, axis: 13.5, mark: 12, r: 2.7, legend: 12.5, row: 23, cell: 12.5 };
-  const SMALL = { w: 330, h: 220, left: 54, gap: 30, right: 20, title: 14.5, sub: 11.5, counts: 11, tick: 11, axis: 12, mark: 10.5, r: 2.1, legend: 12, row: 18, cell: 10.5 };
+  const BIG = { w: 660, h: 380, left: 64, gap: 0, right: 28, title: 21, sub: 14, counts: 12.5, tick: 12.5, axis: 13.5, mark: 12, r: 2.7, legend: 12.5 };
+  const SMALL = { w: 330, h: 220, left: 54, gap: 30, right: 20, title: 14.5, sub: 11.5, counts: 11, tick: 11, axis: 12, mark: 10.5, r: 2.1, legend: 12 };
 
   const r1 = (v) => Math.round(v * 10) / 10;
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -56,39 +56,6 @@ const BirdScorePlot = (() => {
 
   const line = (points, X, Y, key = 'p') => points.map((q, i) => `${i ? 'L' : 'M'}${r1(X(q.score))} ${r1(Y(q[key]))}`).join('');
   const drawnMarks = (p) => (p.marks || []).filter((m) => m.reachable && m.inRange);      // none beyond the scores checked
-  const numberIn = (locale, v, digits, most = digits) => v.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: most });
-
-  function rangeName(r, o) {
-    const limit = (v) => numberIn(o.locale, v, 2, 3);
-    if (r.total) return o.labels.total;
-    if (r.lo === null) return `< ${limit(r.hi)}`;
-    if (r.hi === null) return `≥ ${limit(r.lo)}`;
-    return o.labels.between.replace('{lo}', limit(r.lo)).replace('{hi}', limit(r.hi));
-  }
-
-  // A journal's table: rules above, below and before the total, and no fills
-  function precisionTable(rows, x, y, s, o) {
-    const L = o.labels, size = s.cell;
-    const rule = (at) => `<path d="M${r1(x)} ${r1(at)}H${r1(x + s.w)}" stroke="${C.axis}"/>`;
-    const edges = [0.6, 0.83, 1].map((f) => x + s.w * f);             // the right edge of each column of numbers
-    const room = [0.33, 0.23, 0.17].map((f) => s.w * f - 6);
-    const baseline = (i) => y + (i + 1) * s.row - s.row * 0.32;
-    const first = fitText(o.xLabel || L.score, s.w * 0.27 - 6, size, 600, false);
-    let out = rule(y) + text(x, baseline(0), first.text, { size: first.size, weight: 600, fill: C.ink2 });
-    [L.tp, L.fp, L.precision].forEach((head, c) => {
-      const t = fitText(head, room[c], size, 600, false);
-      out += text(edges[c], baseline(0), t.text, { size: t.size, weight: 600, fill: C.ink2, anchor: 'end' });
-    });
-    out += rule(y + s.row);
-    rows.forEach((r, i) => {
-      const at = baseline(i + 1), weight = r.total ? 600 : 400, cell = { size, weight, fill: C.ink, anchor: 'end' };
-      if (r.total) out += rule(y + (i + 1) * s.row);
-      out += text(x, at, rangeName(r, o), { size, weight, fill: C.ink });
-      out += text(edges[0], at, numberIn(o.locale, r.tp, 0), cell) + text(edges[1], at, numberIn(o.locale, r.fp, 0), cell);
-      out += text(edges[2], at, r.precision === null ? '–' : numberIn(o.locale, r.precision, 2), cell);
-    });
-    return out + rule(y + (rows.length + 1) * s.row);
-  }
 
   function panel(p, x0, y0, s, o, flags) {
     const P = PALETTES[o.palette];
@@ -159,7 +126,6 @@ const BirdScorePlot = (() => {
       labels += text(flip ? xx - 4 : xx + 4, Y(0.085) - level * (s.mark + 2), label, { size: s.mark, weight: 600, fill: C.ink, anchor: flip ? 'end' : 'start', halo: true });
       lastRight = flip ? xx : xx + 4 + w;
     }
-    if (p.table) labels += precisionTable(p.table, x0, bottom + 52, s, o);
     return { svg: out + labels, info: { x: x0, y: y0, w: s.w, h: s.h, dots, panel: p, X, Y } };
   }
 
@@ -190,7 +156,7 @@ const BirdScorePlot = (() => {
     return { svg: out, height: rows.length * rowH };
   }
 
-  /* panels: [{ title, subtitle, counts, seed, clips, low, high, curve, marks, bands, table (or null) }]
+  /* panels: [{ title, subtitle, counts, seed, clips, low, high, curve, marks, bands }]
      o: { labels, locale, palette, align (left, center, right), show: { counts, points, curve, band, threshold, observed },
           italic, xLabel, yLabel, jitter (0 to 1), band, showBands, cols, rows, figureTitle, figureSubtitle } */
   function figure(panels, o) {
@@ -201,7 +167,6 @@ const BirdScorePlot = (() => {
     const hasSub = panels.some((p) => p.subtitle);
     const align = o.align, anchor = { left: 'start', center: 'middle', right: 'end' }[align];
     const anchorAt = (x, width) => (align === 'left' ? x : align === 'center' ? x + width / 2 : x + width);
-    const tableH = panels[0].table ? (panels[0].table.length + 1) * s.row : 0;      // every panel has the same rows
 
     const hasFit = panels.some((p) => p.curve);
     const items = [
@@ -246,7 +211,7 @@ const BirdScorePlot = (() => {
       const d = panel(panels[0], s.left, y, s, o, { yTicks: true, yTitle: true, xTicks: true });
       body += d.svg;
       info.push(d.info);
-      y += s.h + (tableH ? 52 + tableH + 14 : 54);
+      y += s.h + 54;
     } else {
       y = 8;
       if (o.figureTitle) {
@@ -266,23 +231,21 @@ const BirdScorePlot = (() => {
       }
       y += 8;
       const headH = s.title * 1.2 + (hasSub ? s.sub * 1.45 : 0) + (show.counts ? s.counts * 1.5 : 0) + 8;
-      // A table under a plot breaks the axis shared with the row below, so then every plot has its own
-      const gap = tableH ? 22 : 26, pitch = headH + s.h + (tableH ? 52 + tableH : 0) + gap;
+      const pitch = headH + s.h + 26;
       panels.forEach((p, i) => {
         const row = Math.floor(i / cols), col = i % cols;
         const x0 = s.left + col * (s.w + s.gap), top = y + row * pitch;
         body += head(p, x0, top, s.w).svg;
-        const d = panel(p, x0, top + headH, s, o, { yTicks: col === 0, yTitle: col === 0, xTicks: !!tableH || i + cols >= panels.length });
+        const d = panel(p, x0, top + headH, s, o, { yTicks: col === 0, yTitle: col === 0, xTicks: i + cols >= panels.length });
         body += d.svg;
         info.push(d.info);
       });
-      y += rows * pitch - gap + (tableH ? 14 : 54);
+      y += rows * pitch - 26 + 54;
     }
     const H = Math.ceil(y);
     const name = big ? panels[0].title : o.figureTitle || L.figureName;
-    const tableText = (p) => (p.table || []).map((r) => ` ${rangeName(r, o)}: ${L.tp} ${r.tp}, ${L.fp} ${r.fp}, ${L.precision} ${r.precision === null ? '–' : numberIn(o.locale, r.precision, 2)}.`).join('');
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="${FONT}" role="img">`
-      + `<title>${esc(name)}</title><desc>${esc(panels.map((p) => `${p.title}: ${p.counts}.${tableText(p)}`).join(' '))}</desc>`
+      + `<title>${esc(name)}</title><desc>${esc(panels.map((p) => `${p.title}: ${p.counts}.`).join(' '))}</desc>`
       + `<rect width="${W}" height="${H}" fill="${C.surface}"/>${body}</svg>`;
     return { svg, width: W, height: H, panels: info };
   }
