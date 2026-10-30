@@ -77,7 +77,8 @@ h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; line-height: 
 .icon-button { display: grid; place-items: center; width: 36px; height: 36px; flex: none; cursor: pointer; padding: 0;
                border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink-2); }
 .icon-button:hover { color: var(--ink); background: var(--hover); }
-.lang-button { font: inherit; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; }
+select.lang-select { width: auto; min-height: 36px; padding: 0 30px 0 12px; border-color: var(--line); border-radius: 999px; background-color: var(--surface);
+                     background-position: right 8px center; background-size: 16px; font-size: 0.86rem; font-weight: 600; color: var(--ink-2); }
 .icon-button .sun { display: none; }
 :root[data-theme="dark"] .icon-button .sun { display: block; }
 :root[data-theme="dark"] .icon-button .moon { display: none; }
@@ -113,12 +114,12 @@ footer { padding-top: 24px; padding-bottom: 32px; color: var(--ink-2); font-size
 
 /* ── Buttons ──────────────────────────────────────────────────────────────────────────────────────────── */
 .button, .primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 16px;
-  font: inherit; font-weight: 600; cursor: pointer; border-radius: var(--r); white-space: nowrap;
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: var(--r); line-height: 1.25;
   transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
 .button { border: 1px solid var(--field-line); background: var(--surface); color: var(--ink); }
 .button:hover { background: var(--hover); }
 .button .icon { color: var(--ink-2); }
-.button.small { min-height: 32px; padding: 0 12px; border-radius: var(--r-sm); font-size: 0.86rem; }
+.button.small { min-height: 32px; padding: 4px 12px; border-radius: var(--r-sm); font-size: 0.86rem; }
 .primary { border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); }
 .primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
 .primary.danger { background: var(--danger-solid); border-color: var(--danger-solid); color: var(--on-danger); }
@@ -163,12 +164,14 @@ fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
 .radio { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.92rem; min-height: 24px; }
 .radio input { accent-color: var(--accent); width: 18px; height: 18px; margin: 0; flex: none; cursor: pointer; }
 
-.segmented { display: inline-flex; justify-self: start; max-width: 100%; padding: 3px; gap: 2px; border-radius: var(--r); background: var(--surface-2); border: 1px solid var(--line); }
-.segmented label { position: relative; cursor: pointer; }
+.segmented { display: inline-flex; flex-wrap: wrap; justify-self: start; max-width: 100%; padding: 3px; gap: 2px; border-radius: var(--r); background: var(--surface-2); border: 1px solid var(--line); }
+.segmented label { position: relative; cursor: pointer; flex: 1 1 auto; text-align: center; }
 .segmented input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
 .segmented span { display: block; padding: 6px 14px; border-radius: 7px; font-weight: 600; font-size: 0.9rem; color: var(--ink-2); }
 .segmented input:checked + span { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--field-line); }
 .segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.segmented.full { display: flex; justify-self: stretch; }
+.legend-label { padding: 0; }
 
 /* ── Species rows ─────────────────────────────────────────────────────────────────────────────────────── */
 .species-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }

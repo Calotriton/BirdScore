@@ -290,10 +290,10 @@ const BirdScoreCore = (() => {
     return { ...mark, p: mark.value, score: r.score, ci: r.ci, reachable: r.reachable, inRange: r.score >= low && r.score <= high };
   }
 
+  // Only across the scores that were checked: no extrapolation
   function curve(fit, scale, low, high, steps = 240) {
-    const scores = Array.from({ length: steps + 1 }, (_, i) => i / steps);
-    scores.push(low, high);
-    return [...new Set(scores)].sort((a, b) => a - b).map((score) => ({ score, ...probAt(fit, scale, score) }));
+    return Array.from({ length: steps + 1 }, (_, i) => low + ((high - low) * i) / steps)
+      .map((score) => ({ score, ...probAt(fit, scale, score) }));
   }
 
   const minOf = (values) => values.reduce((a, b) => (b < a ? b : a), Infinity);

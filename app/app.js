@@ -11,9 +11,10 @@
   const PRESET_TARGETS = [0.85, 0.9, 0.95, 0.99];
   const settings = {
     source: 'folders', model: '', targets: [0.9], scores: [], layout: 'separate', rows: '', cols: '',
-    figureTitle: '', figureSubtitle: '', titles: {}, italic: true,
-    xLabel: 'Confidence score', yLabel: 'True positive rate',       // English by default in both languages, by the owner's choice
-    jitter: true, jitterAmount: 0.6, plotLang: getLang(), scale: 'logit', band: true, observed: false,
+    figureTitle: '', figureSubtitle: '', titles: {}, italic: true, titleAlign: 'left',
+    showCounts: true, legendPoints: true, legendCurve: true, legendBand: true, legendThreshold: true, legendObserved: true,
+    xLabel: 'Confidence score', yLabel: 'True positive rate',       // English by default in every language, by the owner's choice
+    jitter: true, jitterAmount: 0.6, colourBlind: false, plotLang: getLang(), scale: 'logit', band: true, observed: false,
     format: 'png', dpi: 300, csvFormat: 'comma',
     ...load('birdscore.settings', {}),
   };
@@ -43,19 +44,12 @@
   });
   systemDark.addEventListener('change', labelTheme);
 
-  function labelLang() {
-    const es = getLang() === 'es', b = $('lang'), label = es ? 'English' : 'Español';
-    b.textContent = es ? 'EN' : 'ES';
-    b.lang = es ? 'en' : 'es';
-    b.setAttribute('aria-label', label);
-    b.title = label;
-  }
-  $('lang').addEventListener('click', () => {
-    setLang(getLang() === 'es' ? 'en' : 'es');
-    settings.plotLang = getLang();       // the one button changes the site and the plot; the plot's own menu can differ
+  $('lang').addEventListener('change', (e) => {
+    setLang(e.target.value);
+    settings.plotLang = getLang();       // this menu changes the site and the plot; the plot's own menu can differ
     $('plot-lang').value = settings.plotLang;
     saveSettings();
-    labelLang(); labelTheme();
+    labelTheme();
     renderChips(); renderSpecies(); renderTableSetup(); renderTitles(); updateGenerate(); drawResults();
   });
 
@@ -429,14 +423,20 @@
     ...[...settings.scores].sort((a, b) => a - b).map((value) => ({ kind: 'score', value })),
   ];
 
+  const paletteName = () => (settings.colourBlind ? 'colourblind' : 'standard');
   function plotOptions() {
     const lang = settings.plotLang, T = (key) => tIn(lang, key);
     return {
-      locale: lang === 'es' ? 'es-ES' : 'en-GB',
+      locale: I18n.localeOf(lang),
       labels: {
         positive: T('Positive'), negative: T('Negative'), curve: T('Logistic regression'), band: T('95% confidence band'),
-        outside: T('Extrapolated'), threshold: T('Threshold'), observed: T('Observed share of positives'),
+        threshold: T('Threshold'), observed: T('Observed share of positives'),
         noCurve: T('No curve can be fitted'), figureName: T('Logistic regressions'),
+      },
+      palette: paletteName(), align: settings.titleAlign,
+      show: {
+        counts: settings.showCounts, points: settings.legendPoints, curve: settings.legendCurve,
+        band: settings.legendBand, threshold: settings.legendThreshold, observed: settings.legendObserved,
       },
       italic: settings.italic, xLabel: settings.xLabel, yLabel: settings.yLabel,
       jitter: settings.jitter ? settings.jitterAmount : 0, band: settings.band, showBands: settings.observed,
@@ -500,7 +500,7 @@
     const svg = canvas.querySelector('svg'), tip = $('tip'), NS = 'http://www.w3.org/2000/svg';
     const guide = document.createElementNS(NS, 'path'), dot = document.createElementNS(NS, 'circle');
     guide.setAttribute('stroke', Plot.COLOURS.ink); guide.setAttribute('stroke-opacity', '0.45');
-    dot.setAttribute('r', '4.5'); dot.setAttribute('fill', Plot.COLOURS.curve); dot.setAttribute('stroke', '#fff'); dot.setAttribute('stroke-width', '2');
+    dot.setAttribute('r', '4.5'); dot.setAttribute('fill', Plot.PALETTES[paletteName()].curve); dot.setAttribute('stroke', '#fff'); dot.setAttribute('stroke-width', '2');
     const layer = document.createElementNS(NS, 'g');
     layer.style.pointerEvents = 'none';
     layer.append(guide, dot);
@@ -533,9 +533,9 @@
         show(e, num(c.score, 3), t(c.result === 'positive' ? 'Positive' : 'Negative'), ...(c.file ? [c.file] : []));
         return;
       }
-      const fit = q.panel.fit;
-      if (!fit) { hide(); return; }
-      const score = Math.min(Math.max((at.x - q.x) / q.w, 0), 1), r = Core.probAt(fit, settings.scale, score);
+      const fit = q.panel.fit, score = (at.x - q.x) / q.w;
+      if (!fit || score < q.panel.low || score > q.panel.high) { hide(); return; }     // the curve is only read where it was checked
+      const r = Core.probAt(fit, settings.scale, score);
       guide.setAttribute('d', `M${q.X(score)} ${q.y}V${q.y + q.h}`);
       dot.setAttribute('cx', q.X(score)); dot.setAttribute('cy', q.Y(r.p));
       layer.setAttribute('visibility', 'visible');
@@ -558,8 +558,8 @@
       case 'slope': return t('Higher scores are not more often correct here, so no threshold is given. Check that the folders or values are not swapped.');
       case 'unreached': return t('A probability of {p} is not reached at any score from 0 to 1.', { p: num(n.p, 2, 3) });
       case 'outside': return n.kind === 'p'
-        ? t('The threshold for a probability of {value} lies outside the scores you checked ({low} to {high}), so it is an extrapolation.', { value: num(n.value, 2, 3), low: d3(n.low), high: d3(n.high) })
-        : t('The score {value} lies outside the scores you checked ({low} to {high}), so its probability is an extrapolation.', { value: num(n.value, 2, 3), low: d3(n.low), high: d3(n.high) });
+        ? t('The threshold for a probability of {value} lies outside the scores you checked ({low} to {high}), so it is an extrapolation and is not drawn.', { value: num(n.value, 2, 3), low: d3(n.low), high: d3(n.high) })
+        : t('The score {value} lies outside the scores you checked ({low} to {high}), so its probability is an extrapolation and it is not drawn.', { value: num(n.value, 2, 3), low: d3(n.low), high: d3(n.high) });
       case 'confounded_year': return t('Most positive clips are from {pos} and most negative clips from {neg}, so the curve cannot separate the effect of the score from that of the year.', n);
       case 'confounded_site': return t('Most positive clips are from {pos} and most negative clips from {neg}, so the curve cannot separate the effect of the score from that of the site or recorder.', n);
       case 'sampled': return t('The plot shows a sample of {n} points per group. The regression uses every clip.', { n: num(Plot.MAX_POINTS) });
@@ -613,7 +613,7 @@
         ? t('BirdScore fits one logistic regression per species by maximum likelihood, with no penalty: p = 1 / (1 + exp(−(b0 + b1 · x))), where p is the probability that a detection is correct and x is the logit of the confidence score, log(s / (1 − s)), as in Wood and Kahl (2024). Scores of exactly 0 or 1 count as 0.000001 and 0.999999.')
         : t('BirdScore fits one logistic regression per species by maximum likelihood, with no penalty: p = 1 / (1 + exp(−(b0 + b1 · x))), where p is the probability that a detection is correct and x is the confidence score itself.'),
       t('The band is the 95% Wald interval, computed on the logit scale. A threshold is the score at which the curve reaches the chosen probability, and its interval runs between the scores at which the band reaches it. Both treat clips as independent. Clips from one recording or night often are not, so the real uncertainty can be larger.'),
-      t('The curve describes the detections you checked: this species, this model and these recordings. It holds only across the scores checked, and the faded line beyond them is an extrapolation. It estimates how often a detection at a given score is correct, which is a kind of precision. It says nothing about the calls the model missed (recall), which statisticians usually call the true positive rate.'),
+      t('The curve describes the detections you checked: this species, this model and these recordings. It is drawn only across the scores you checked. It estimates how often a detection at a given score is correct, which is a kind of precision. It says nothing about the calls the model missed (recall), which statisticians usually call the true positive rate.'),
     ].map((text) => h('p', { className: 'prose', textContent: text })));
     const link = h('a', { href: 'https://doi.org/10.1007/s10336-024-02144-5', textContent: 'doi:10.1007/s10336-024-02144-5' });
     box.append(h('p', { className: 'prose hint' }, 'Wood CM, Kahl S (2024). Guidelines for appropriate use of BirdNET scores and other detector outputs. Journal of Ornithology. ', link));
@@ -726,7 +726,7 @@
 
   // ── Start ────────────────────────────────────────────────────────────────────────────────────────────
   applyLang();
-  labelLang();
+  $('lang').value = getLang();
   labelTheme();
   bind('model', 'model');
   bind('rows', 'rows');
@@ -734,6 +734,13 @@
   bind('figure-title', 'figureTitle');
   bind('figure-subtitle', 'figureSubtitle');
   bind('italic', 'italic', checked);
+  bind('show-counts', 'showCounts', checked);
+  bind('legend-points', 'legendPoints', checked);
+  bind('legend-curve', 'legendCurve', checked);
+  bind('legend-band', 'legendBand', checked);
+  bind('legend-threshold', 'legendThreshold', checked);
+  bind('legend-observed', 'legendObserved', checked);
+  bind('colour-blind', 'colourBlind', checked);
   bind('x-label', 'xLabel');
   bind('y-label', 'yLabel');
   bind('jitter', 'jitter', checked);
@@ -747,6 +754,17 @@
   bind('csv-format', 'csvFormat');
   $('jitter').addEventListener('change', () => { $('jitter-field').hidden = !settings.jitter; });
   $('jitter-field').hidden = !settings.jitter;
+  const syncLegendSwitches = () => {           // no switch for a legend entry whose mark is not drawn
+    $('legend-band-field').hidden = !settings.band;
+    $('legend-observed-field').hidden = !settings.observed;
+  };
+  $('band').addEventListener('change', syncLegendSwitches);
+  $('observed').addEventListener('change', syncLegendSwitches);
+  syncLegendSwitches();
+  document.querySelectorAll('input[name="title-align"]').forEach((input) => {
+    input.checked = input.value === settings.titleAlign;
+    input.addEventListener('change', () => { settings.titleAlign = input.value; settingsChanged(); });
+  });
   document.querySelectorAll('input[name="layout"]').forEach((input) => {
     input.checked = input.value === settings.layout;
     input.addEventListener('change', () => { settings.layout = input.value; renderTitles(); $('grid-size').hidden = settings.layout !== 'grid'; settingsChanged(); });

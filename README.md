@@ -15,12 +15,14 @@ Either of these, for one species or for many:
 
 ## What you choose
 
-- The thresholds to mark: a target probability shows the score that reaches it, and a score shows its probability.
-- The title and subtitle of each plot. The title starts as the species name.
+- The thresholds to mark, each drawn as a vertical dashed line: a target probability, at the score that reaches it, or a score of your own. The numbers are in the table under the plots. What the line means belongs in your figure's caption.
+- The title and subtitle of each plot, on the left, in the centre or on the right. The title starts as the species name.
+- What appears at the top of the plot: the total positives and negatives, and each entry of the legend.
 - One image per species, or one image with all species in a grid such as 2 × 3.
-- The names of the axes, which start as "Confidence score" and "True positive rate" in both languages.
+- The names of the axes, which start as "Confidence score" and "True positive rate" in every language.
 - Jitter for the points, which never changes their scores.
-- English or Spanish, for the site and for the plot.
+- Colours for colour-blind readers: blue and vermilion, with solid points.
+- English, Spanish or Catalan, for the site and for the plot.
 
 ## What you get
 
@@ -39,14 +41,14 @@ The band is the 95% Wald interval on the logit scale. A threshold is the score w
 - The curve describes the detections you checked: that species, that model and those recordings. Check before using it elsewhere.
 - It estimates how often a detection at a given score is correct, which is a kind of precision. It says nothing about the calls the model missed. In statistics "true positive rate" usually means that other quantity, recall, so you may want to rename the Y axis in a paper.
 - The band and the intervals treat clips as independent. Clips from one recording or night often are not, so the real uncertainty can be larger.
-- The curve holds only across the scores you checked. Beyond them it is drawn faded.
+- The curve holds only across the scores you checked, so it is drawn only there. A threshold beyond them is not drawn, and the table gives it with a note.
 - If you chose clips by their result rather than by their score, the curve and the thresholds shift.
 
 BirdScore warns about what it can see: too few clips of one kind, no overlap between positives and negatives, a curve that falls, thresholds outside the scores checked, and positives and negatives that come mostly from different years or recorders.
 
 ## For developers
 
-The site is plain HTML, CSS and JavaScript in `app/`, with no build step. `core.js` holds the logic, `plot.js` draws the figure as one SVG, `i18n.js` holds the Spanish texts and `app.js` runs the page. GitHub Pages publishes `app/` on every push that changes it. Decisions are in `docs/decisions/`.
+The site is plain HTML, CSS and JavaScript in `app/`, with no build step. `core.js` holds the logic, `plot.js` draws the figure as one SVG, `i18n.js` holds the Spanish and Catalan texts and `app.js` runs the page. GitHub Pages publishes `app/` on every push that changes it. Decisions are in `docs/decisions/`.
 
 The tests drive the real page in Edge and compare the results with statsmodels and scikit-learn. They need Python, but not Node:
 

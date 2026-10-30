@@ -8,7 +8,10 @@ import pytest
 APP = Path(__file__).resolve().parents[1] / "app"
 CSS = (APP / "style.css").read_text(encoding="utf-8")
 TOKENS = dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6})", CSS))
-PLOT = dict(re.findall(r"(\w+): '(#[0-9a-fA-F]{6})'", (APP / "plot.js").read_text(encoding="utf-8")))
+PLOT_JS = (APP / "plot.js").read_text(encoding="utf-8")
+HEX = r"(\w+): '(#[0-9a-fA-F]{6})'"
+NEUTRALS = dict(re.findall(HEX, re.search(r"const C = \{(.*?)\};", PLOT_JS, re.S).group(1)))
+PALETTES = {name: re.search(rf"{name}: \{{(.*?)\}}", PLOT_JS).group(1) for name in ["standard", "colourblind"]}
 SURFACES = ["bg", "surface", "surface-2", "hover", "accent-soft"]
 
 
@@ -36,7 +39,18 @@ def test_page_contrast(theme, pairs, need):
     assert not bad, bad
 
 
-def test_plot_contrast():
-    white = PLOT["surface"]
-    assert all(ratio(PLOT[k], white) >= 4.5 for k in ["ink", "ink2", "tick", "mark"])
-    assert all(ratio(PLOT[k], white) >= 3 for k in ["pos", "neg", "curve"])
+def test_plot_text_contrast():
+    white = NEUTRALS["surface"]
+    assert all(ratio(NEUTRALS[k], white) >= 4.5 for k in ["ink", "ink2", "tick", "mark"])
+
+
+@pytest.mark.parametrize("name", ["standard", "colourblind"])
+def test_plot_marks_contrast_as_solid_colours(name):
+    colours = dict(re.findall(HEX, PALETTES[name]))
+    assert all(ratio(colours[k], NEUTRALS["surface"]) >= 3 for k in ["pos", "neg", "curve"])
+
+
+def test_colour_blind_points_are_drawn_solid():
+    """Opacity lowers contrast. The standard points, at 50%, are 1.87:1 and 2.2:1 on white, which the owner knows;
+    the colour-blind set must reach 3:1 as drawn."""
+    assert "points: 1," in PALETTES["colourblind"] and "key: 1," in PALETTES["colourblind"]

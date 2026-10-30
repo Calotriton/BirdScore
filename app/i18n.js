@@ -1,9 +1,11 @@
-// The site's and the plot's texts. English is the source, written in index.html and app.js; Spanish is here.
+// The site's and the plot's texts. English is the source, written in index.html and app.js; Spanish and Catalan are here.
 const I18n = (() => {
   const norm = (s) => s.replace(/\s+/g, ' ').trim();
+  const LOCALES = { en: 'en-GB', es: 'es-ES', ca: 'ca-ES' };
   let lang = (() => {
-    try { const saved = localStorage.getItem('birdscore.lang'); if (saved) return saved; } catch { /* storage blocked */ }
-    return (navigator.language || 'en').toLowerCase().startsWith('es') ? 'es' : 'en';
+    try { const saved = localStorage.getItem('birdscore.lang'); if (saved in LOCALES) return saved; } catch { /* storage blocked */ }
+    const browser = (navigator.language || 'en').toLowerCase().slice(0, 2);
+    return browser in LOCALES ? browser : 'en';
   })();
 
   const ES = {
@@ -47,8 +49,20 @@ const I18n = (() => {
     '0.50': '0,50',
     'Add': 'Añadir',
     'A confidence score to mark': 'Una puntuación de confianza que marcar',
-    'Each value turned on is marked on the curve: a probability shows the score that reaches it, a score shows its probability. Turn them all off for no threshold.':
-      'Cada valor activo se marca en la curva: una probabilidad muestra la puntuación que la alcanza y una puntuación muestra su probabilidad. Desactívalos todos para no marcar ningún umbral.',
+    'Language of the site': 'Idioma del sitio',
+    'Each value turned on draws a vertical dashed line: at the score that reaches that probability, or at the score you wrote. The numbers are in the table under the plots. Turn them all off for no threshold.':
+      'Cada valor activo dibuja una línea vertical discontinua: en la puntuación que alcanza esa probabilidad, o en la que hayas escrito. Los números están en la tabla bajo los gráficos. Desactívalos todos para no marcar ningún umbral.',
+    'Title and subtitle position': 'Posición del título y el subtítulo',
+    'Left': 'Izquierda',
+    'Centre': 'Centro',
+    'Right': 'Derecha',
+    'Top of the plot': 'Parte superior del gráfico',
+    'Total positives and negatives': 'Total de positivos y negativos',
+    'In the legend': 'En la leyenda',
+    'Positive and negative': 'Positivo y negativo',
+    'Colours': 'Colores',
+    'Colour-blind friendly colours': 'Colores aptos para daltonismo',
+    'Blue and vermilion, with solid points. They stay distinct with the common types of colour blindness.': 'Azul y bermellón, con puntos sólidos. Se distinguen bien con los tipos habituales de daltonismo.',
     'Layout': 'Disposición',
     'One image per species': 'Una imagen por especie',
     'One image with all species': 'Una imagen con todas las especies',
@@ -88,7 +102,7 @@ const I18n = (() => {
     'Data': 'Datos',
     'CSV style': 'Estilo de CSV',
     'Comma (R, Python)': 'Coma (R, Python)',
-    'Semicolon (Excel in Spanish)': 'Punto y coma (Excel en español)',
+    'Semicolon (Excel in Spanish or Catalan)': 'Punto y coma (Excel en español o catalán)',
     'Detections (.csv)': 'Detecciones (.csv)',
     'Thresholds (.csv)': 'Umbrales (.csv)',
     'Thresholds': 'Umbrales',
@@ -170,10 +184,10 @@ const I18n = (() => {
     'Higher scores are not more often correct here, so no threshold is given. Check that the folders or values are not swapped.':
       'Aquí las puntuaciones altas no aciertan más a menudo, así que no se da ningún umbral. Comprueba que las carpetas o los valores no estén intercambiados.',
     'A probability of {p} is not reached at any score from 0 to 1.': 'Ninguna puntuación de 0 a 1 alcanza una probabilidad de {p}.',
-    'The threshold for a probability of {value} lies outside the scores you checked ({low} to {high}), so it is an extrapolation.':
-      'El umbral para una probabilidad de {value} queda fuera de las puntuaciones que has revisado (de {low} a {high}), así que es una extrapolación.',
-    'The score {value} lies outside the scores you checked ({low} to {high}), so its probability is an extrapolation.':
-      'La puntuación {value} queda fuera de las que has revisado (de {low} a {high}), así que su probabilidad es una extrapolación.',
+    'The threshold for a probability of {value} lies outside the scores you checked ({low} to {high}), so it is an extrapolation and is not drawn.':
+      'El umbral para una probabilidad de {value} queda fuera de las puntuaciones que has revisado (de {low} a {high}), así que es una extrapolación y no se dibuja.',
+    'The score {value} lies outside the scores you checked ({low} to {high}), so its probability is an extrapolation and it is not drawn.':
+      'La puntuación {value} queda fuera de las que has revisado (de {low} a {high}), así que su probabilidad es una extrapolación y no se dibuja.',
     'Most positive clips are from {pos} and most negative clips from {neg}, so the curve cannot separate the effect of the score from that of the year.':
       'La mayoría de los clips positivos son de {pos} y la mayoría de los negativos de {neg}, así que la curva no puede separar el efecto de la puntuación del efecto del año.',
     'Most positive clips are from {pos} and most negative clips from {neg}, so the curve cannot separate the effect of the score from that of the site or recorder.':
@@ -191,15 +205,14 @@ const I18n = (() => {
       'BirdScore ajusta una regresión logística por especie por máxima verosimilitud, sin penalización: p = 1 / (1 + exp(−(b0 + b1 · x))), donde p es la probabilidad de que una detección sea correcta y x es la propia puntuación de confianza.',
     'The band is the 95% Wald interval, computed on the logit scale. A threshold is the score at which the curve reaches the chosen probability, and its interval runs between the scores at which the band reaches it. Both treat clips as independent. Clips from one recording or night often are not, so the real uncertainty can be larger.':
       'La banda es el intervalo de Wald del 95 %, calculado en la escala logit. Un umbral es la puntuación en la que la curva alcanza la probabilidad elegida, y su intervalo va de una a otra de las puntuaciones en las que la banda la alcanza. Ambos tratan los clips como independientes. Los clips de una misma grabación o noche a menudo no lo son, así que la incertidumbre real puede ser mayor.',
-    'The curve describes the detections you checked: this species, this model and these recordings. It holds only across the scores checked, and the faded line beyond them is an extrapolation. It estimates how often a detection at a given score is correct, which is a kind of precision. It says nothing about the calls the model missed (recall), which statisticians usually call the true positive rate.':
-      'La curva describe las detecciones que has revisado: esta especie, este modelo y estas grabaciones. Solo vale dentro de las puntuaciones revisadas, y la línea atenuada más allá de ellas es una extrapolación. Estima con qué frecuencia es correcta una detección con una puntuación dada, que es una forma de precisión. No dice nada de los cantos que el modelo no detectó (la exhaustividad o recall), que en estadística suele llamarse tasa de verdaderos positivos.',
+    'The curve describes the detections you checked: this species, this model and these recordings. It is drawn only across the scores you checked. It estimates how often a detection at a given score is correct, which is a kind of precision. It says nothing about the calls the model missed (recall), which statisticians usually call the true positive rate.':
+      'La curva describe las detecciones que has revisado: esta especie, este modelo y estas grabaciones. Solo se dibuja dentro de las puntuaciones que has revisado. Estima con qué frecuencia es correcta una detección con una puntuación dada, que es una forma de precisión. No dice nada de los cantos que el modelo no detectó (la exhaustividad o recall), que en estadística suele llamarse tasa de verdaderos positivos.',
     'Preparing the image…': 'Preparando la imagen…',
     'Preparing the images…': 'Preparando las imágenes…',
     'The image is too large at this resolution. Choose a lower one.': 'La imagen es demasiado grande con esta resolución. Elige una menor.',
     // The plot
     'Logistic regression': 'Regresión logística',
     '95% confidence band': 'Banda de confianza del 95 %',
-    'Extrapolated': 'Extrapolada',
     'Observed share of positives': 'Proporción observada de positivos',
     'No curve can be fitted': 'No se puede ajustar ninguna curva',
     'Logistic regressions': 'Regresiones logísticas',
@@ -209,10 +222,226 @@ const I18n = (() => {
     '1 negative': '1 negativo',
   };
 
+  const CA = {
+    // The page
+    'From confidence score to true positive rate': 'De la puntuació de confiança a la taxa de veritables positius',
+    'Your detections': 'Les teves deteccions',
+    'Start over': 'Torna a començar',
+    'Give BirdScore the detections you checked, sorted into positive (the identification was right) and negative (it was wrong).':
+      'Dona a BirdScore les deteccions que has revisat, separades en positives (la identificació era correcta) i negatives (era errònia).',
+    'Where your detections are': 'On són les teves deteccions',
+    'Folders of clips': 'Carpetes de clips',
+    'Excel or CSV file': 'Fitxer Excel o CSV',
+    'Add species': 'Afegeix una espècie',
+    'Add one folder with several species': 'Afegeix una carpeta amb diverses espècies',
+    'The score is the first number in each file name, for example 0.104 in 0.104_1_recording_12.0s_15.0s.wav.':
+      'La puntuació és el primer número del nom de cada fitxer, per exemple 0.104 a 0.104_1_gravacio_12.0s_15.0s.wav.',
+    'Your browser may say the files will be uploaded. They are not: BirdScore only reads their names, here on your computer.':
+      'Pot ser que el navegador digui que es pujaran els fitxers. No és així: BirdScore només en llegeix els noms, aquí al teu ordinador.',
+    'Choose a file': 'Tria un fitxer',
+    'Excel (.xlsx, .xls) or text (.csv, .tsv), with one row per detection.': 'Excel (.xlsx, .xls) o text (.csv, .tsv), amb una fila per detecció.',
+    'Sheet': 'Full',
+    'Species': 'Espècie',
+    'Species name': "Nom de l'espècie",
+    'Confidence score': 'Puntuació de confiança',
+    'Positive or negative': 'Positiu o negatiu',
+    'Date': 'Data',
+    'Time': 'Hora',
+    'Site or recorder': 'Lloc o gravadora',
+    'File name': 'Nom del fitxer',
+    'What each value means': 'Què significa cada valor',
+    'Model': 'Model',
+    '(optional)': '(opcional)',
+    'For example, BirdNET or Perch': 'Per exemple, BirdNET o Perch',
+    'It goes in the .csv files, not on the plot.': "S'escriu als fitxers .csv, no al gràfic.",
+    'Plot settings': 'Ajustos del gràfic',
+    'Saved automatically': 'Es desa automàticament',
+    'Threshold': 'Llindar',
+    'Probability of a correct identification': "Probabilitat d'identificació correcta",
+    'Another probability': 'Una altra probabilitat',
+    '0.97': '0,97',
+    '0.50': '0,50',
+    'Add': 'Afegeix',
+    'A confidence score to mark': 'Una puntuació de confiança per marcar',
+    'Language of the site': 'Idioma del lloc',
+    'Each value turned on draws a vertical dashed line: at the score that reaches that probability, or at the score you wrote. The numbers are in the table under the plots. Turn them all off for no threshold.':
+      "Cada valor actiu dibuixa una línia vertical discontínua: a la puntuació que arriba a aquesta probabilitat, o a la que hagis escrit. Els nombres són a la taula sota els gràfics. Desactiva'ls tots per no marcar cap llindar.",
+    'Title and subtitle position': 'Posició del títol i el subtítol',
+    'Left': 'Esquerra',
+    'Centre': 'Centre',
+    'Right': 'Dreta',
+    'Top of the plot': 'Part superior del gràfic',
+    'Total positives and negatives': 'Total de positius i negatius',
+    'In the legend': 'A la llegenda',
+    'Positive and negative': 'Positiu i negatiu',
+    'Colours': 'Colors',
+    'Colour-blind friendly colours': 'Colors aptes per a daltonisme',
+    'Blue and vermilion, with solid points. They stay distinct with the common types of colour blindness.': 'Blau i vermelló, amb punts sòlids. Es distingeixen bé amb els tipus habituals de daltonisme.',
+    'Layout': 'Disposició',
+    'One image per species': 'Una imatge per espècie',
+    'One image with all species': 'Una imatge amb totes les espècies',
+    'Rows': 'Files',
+    'Columns': 'Columnes',
+    'Titles': 'Títols',
+    'Image title': 'Títol de la imatge',
+    'Image subtitle': 'Subtítol de la imatge',
+    'Optional': 'Opcional',
+    'The title of each plot starts as its species name. Add a species to change it.': "El títol de cada gràfic és, d'entrada, el nom de l'espècie. Afegeix una espècie per canviar-lo.",
+    'Plot titles in italics, as for scientific names': 'Títols en cursiva, com els noms científics',
+    'Axes': 'Eixos',
+    'X axis name': "Nom de l'eix X",
+    'Y axis name': "Nom de l'eix Y",
+    'Points': 'Punts',
+    'Jitter the points': 'Dispersa els punts (jitter)',
+    'Amount of jitter': 'Quantitat de dispersió',
+    'Spreads the points up and down so they overlap less. Their scores do not change.': 'Separa els punts amunt i avall perquè se solapin menys. Les seves puntuacions no canvien.',
+    'Language of the plot': 'Idioma del gràfic',
+    'The axis names stay as you write them, in any language.': 'Els noms dels eixos queden tal com els escriguis, en qualsevol idioma.',
+    'Advanced': 'Avançat',
+    'Score used in the regression': 'Puntuació usada a la regressió',
+    'Logit of the score (recommended)': 'Logit de la puntuació (recomanat)',
+    'Score as it is': 'La puntuació tal qual',
+    'Both draw the same axes. The logit keeps every threshold between 0 and 1, and is the method of Wood and Kahl (2024).':
+      'Totes dues opcions dibuixen els mateixos eixos. El logit manté tots els llindars entre 0 i 1, i és el mètode de Wood i Kahl (2024).',
+    'Show the 95% confidence band': 'Mostra la banda de confiança del 95 %',
+    'Show the observed share of positives per 0.1 of score': 'Mostra la proporció observada de positius per cada 0,1 de puntuació',
+    'Generate plots': 'Genera els gràfics',
+    'Your plots, the thresholds and the .csv with your data will appear here.': 'Aquí apareixeran els gràfics, els llindars i el .csv amb les teves dades.',
+    'Results': 'Resultats',
+    'Your data changed. Generate the plots again to include the changes.': 'Les teves dades han canviat. Torna a generar els gràfics per incloure-hi els canvis.',
+    'Plots': 'Gràfics',
+    'Format': 'Format',
+    'SVG (vector)': 'SVG (vectorial)',
+    'Resolution': 'Resolució',
+    'Data': 'Dades',
+    'CSV style': 'Estil de CSV',
+    'Comma (R, Python)': 'Coma (R, Python)',
+    'Semicolon (Excel in Spanish or Catalan)': 'Punt i coma (Excel en castellà o català)',
+    'Detections (.csv)': 'Deteccions (.csv)',
+    'Thresholds (.csv)': 'Llindars (.csv)',
+    'Thresholds': 'Llindars',
+    'How this was calculated': "Com s'ha calculat",
+    'BirdScore runs in your browser. Your files stay on your computer.': 'BirdScore funciona al teu navegador. Els teus fitxers no surten del teu ordinador.',
+    'Source code': 'Codi font',
+    'Remove every species and result from this page? Your folders and files are not touched.': "Vols treure totes les espècies i els resultats d'aquesta pàgina? Les teves carpetes i fitxers no es toquen.",
+    'Keep': 'Conserva',
+    'Remove': 'Treu',
+    'For example, Turdus merula': 'Per exemple, Turdus merula',
+    'Positive': 'Positiu',
+    'Negative': 'Negatiu',
+    'Browse the Positive folder': 'Cerca la carpeta de positius',
+    'Browse the Negative folder': 'Cerca la carpeta de negatius',
+    'Browse folder': 'Cerca la carpeta',
+    'Remove this species': 'Treu aquesta espècie',
+    // Messages
+    'Day mode': 'Mode de dia',
+    'Night mode': 'Mode de nit',
+    'no score at the start of the name': 'no hi ha cap puntuació al principi del nom',
+    'the first number is above 1': 'el primer número és més gran que 1',
+    'not an audio file': "no és un fitxer d'àudio",
+    'No folder yet': 'Encara sense carpeta',
+    '{n} clips, scores {lo} to {hi}': '{n} clips, puntuacions de {lo} a {hi}',
+    '{n} clip, score {lo}': '{n} clip, puntuació {lo}',
+    'No clips with a score in this folder.': 'Aquesta carpeta no té clips amb puntuació.',
+    'Check this one: the folder is called “{folder}”.': 'Comprova-ho: la carpeta es diu «{folder}».',
+    '{n} files not used': '{n} fitxers sense fer servir',
+    '{n} file not used': '{n} fitxer sense fer servir',
+    'No folders named Positive or Negative were found inside that folder.': "Dins d'aquesta carpeta no hi ha carpetes anomenades Positive o Negative.",
+    'Reading {file}…': "S'està llegint {file}…",
+    '{file} could not be read as a table. Save it as .xlsx or .csv, with column names in the first row, and try again.':
+      "No s'ha pogut llegir {file} com a taula. Desa'l com a .xlsx o .csv, amb els noms de les columnes a la primera fila, i torna-ho a provar.",
+    '{file} (last used)': "{file} (l'últim usat)",
+    'All rows are one species': "Totes les files són d'una espècie",
+    'Choose a column': 'Tria una columna',
+    'Not in this file': 'No és en aquest fitxer',
+    'This column has {n} different values. Check that it is the one that says positive or negative.': 'Aquesta columna té {n} valors diferents. Comprova que sigui la que indica positiu o negatiu.',
+    'Meaning of {value}': 'Significat de {value}',
+    'Ignore': 'Ignora',
+    '{n} rows': '{n} files',
+    '{n} row': '{n} fila',
+    '{n} detections: {pos} positive, {neg} negative.': '{n} deteccions: {pos} positives, {neg} negatives.',
+    '{n} detection: {pos} positive, {neg} negative.': '{n} detecció: {pos} positives, {neg} negatives.',
+    '{n} rows not used: {a} without a species, {b} without a score from 0 to 1, {c} without a result, {d} set to Ignore.':
+      '{n} files sense fer servir: {a} sense espècie, {b} sense una puntuació de 0 a 1, {c} sense resultat, {d} marcades com a Ignora.',
+    '{n} row not used: {a} without a species, {b} without a score from 0 to 1, {c} without a result, {d} set to Ignore.':
+      '{n} fila sense fer servir: {a} sense espècie, {b} sense una puntuació de 0 a 1, {c} sense resultat, {d} marcades com a Ignora.',
+    'Add the Positive and Negative folders of at least one species.': "Afegeix les carpetes de positius i negatius d'almenys una espècie.",
+    'Choose a file and its columns first.': 'Primer tria un fitxer i les seves columnes.',
+    'Write a probability above 0 and below 1, for example 0.97.': 'Escriu una probabilitat més gran que 0 i més petita que 1, per exemple 0,97.',
+    'Write a score from 0 to 1, for example 0.50.': 'Escriu una puntuació de 0 a 1, per exemple 0,50.',
+    'Title': 'Títol',
+    'Subtitle': 'Subtítol',
+    'Write the species name.': "Escriu el nom de l'espècie.",
+    'Another row already has this name.': 'Una altra fila ja té aquest nom.',
+    'Plots ready: {n} species, {m} clips.': 'Gràfics a punt: {n} espècies, {m} clips.',
+    'Plots ready: one species, {m} clips.': 'Gràfics a punt: una espècie, {m} clips.',
+    '{n} plots do not fit there, so the image has {rows} rows.': '{n} gràfics no hi caben, així que la imatge té {rows} files.',
+    'All species': 'Totes les espècies',
+    '{n} species, {m} clips': '{n} espècies, {m} clips',
+    'One species, {m} clips': 'Una espècie, {m} clips',
+    'Download all (.zip)': 'Baixa-ho tot (.zip)',
+    'Download plot': 'Baixa el gràfic',
+    'Download {name} as {format}': 'Baixa {name} en {format}',
+    '95% CI {lo} to {hi}': 'IC del 95 %: de {lo} a {hi}',
+    'Score {score}': 'Puntuació {score}',
+    'There are no negative clips, so no curve can be fitted.': 'No hi ha clips negatius, de manera que no es pot ajustar cap corba.',
+    'There are no positive clips, so no curve can be fitted.': 'No hi ha clips positius, de manera que no es pot ajustar cap corba.',
+    'All clips have the same score, so no curve can be fitted.': 'Tots els clips tenen la mateixa puntuació, de manera que no es pot ajustar cap corba.',
+    'Positive and negative clips do not overlap, so no curve can be fitted: every negative scores {lo} or less and every positive {hi} or more.':
+      'Els clips positius i negatius no se solapen, de manera que no es pot ajustar cap corba: tots els negatius puntuen {lo} o menys i tots els positius {hi} o més.',
+    'Every negative clip scores higher than every positive clip, so no curve can be fitted. Check that the folders or values are not swapped.':
+      'Tots els clips negatius puntuen més que tots els positius, de manera que no es pot ajustar cap corba. Comprova que les carpetes o els valors no estiguin intercanviats.',
+    'Only {n} negative clips: the curve is very uncertain.': 'Només {n} clips negatius: la corba és molt incerta.',
+    'Only {n} negative clip: the curve is very uncertain.': 'Només {n} clip negatiu: la corba és molt incerta.',
+    'Only {n} positive clips: the curve is very uncertain.': 'Només {n} clips positius: la corba és molt incerta.',
+    'Only {n} positive clip: the curve is very uncertain.': 'Només {n} clip positiu: la corba és molt incerta.',
+    'Higher scores are not more often correct here, so no threshold is given. Check that the folders or values are not swapped.':
+      'Aquí les puntuacions altes no encerten més sovint, de manera que no es dona cap llindar. Comprova que les carpetes o els valors no estiguin intercanviats.',
+    'A probability of {p} is not reached at any score from 0 to 1.': 'Cap puntuació de 0 a 1 arriba a una probabilitat de {p}.',
+    'The threshold for a probability of {value} lies outside the scores you checked ({low} to {high}), so it is an extrapolation and is not drawn.':
+      'El llindar per a una probabilitat de {value} queda fora de les puntuacions que has revisat (de {low} a {high}), de manera que és una extrapolació i no es dibuixa.',
+    'The score {value} lies outside the scores you checked ({low} to {high}), so its probability is an extrapolation and it is not drawn.':
+      'La puntuació {value} queda fora de les que has revisat (de {low} a {high}), de manera que la seva probabilitat és una extrapolació i no es dibuixa.',
+    'Most positive clips are from {pos} and most negative clips from {neg}, so the curve cannot separate the effect of the score from that of the year.':
+      "La majoria dels clips positius són de {pos} i la majoria dels negatius de {neg}, de manera que la corba no pot separar l'efecte de la puntuació de l'efecte de l'any.",
+    'Most positive clips are from {pos} and most negative clips from {neg}, so the curve cannot separate the effect of the score from that of the site or recorder.':
+      "La majoria dels clips positius són de {pos} i la majoria dels negatius de {neg}, de manera que la corba no pot separar l'efecte de la puntuació de l'efecte del lloc o la gravadora.",
+    'The plot shows a sample of {n} points per group. The regression uses every clip.': 'El gràfic mostra una mostra de {n} punts per grup. La regressió fa servir tots els clips.',
+    'Score for p = {v}': 'Puntuació per a p = {v}',
+    'p at score {v}': 'p amb puntuació {v}',
+    'not reached': "no s'hi arriba",
+    'no limit': 'sense límit',
+    'Recordings': 'Gravacions',
+    'In brackets, the 95% confidence interval.': "Entre parèntesis, l'interval de confiança del 95 %.",
+    'BirdScore fits one logistic regression per species by maximum likelihood, with no penalty: p = 1 / (1 + exp(−(b0 + b1 · x))), where p is the probability that a detection is correct and x is the logit of the confidence score, log(s / (1 − s)), as in Wood and Kahl (2024). Scores of exactly 0 or 1 count as 0.000001 and 0.999999.':
+      "BirdScore ajusta una regressió logística per espècie per màxima versemblança, sense penalització: p = 1 / (1 + exp(−(b0 + b1 · x))), on p és la probabilitat que una detecció sigui correcta i x és el logit de la puntuació de confiança, log(s / (1 − s)), com a Wood i Kahl (2024). Les puntuacions d'exactament 0 o 1 compten com a 0,000001 i 0,999999.",
+    'BirdScore fits one logistic regression per species by maximum likelihood, with no penalty: p = 1 / (1 + exp(−(b0 + b1 · x))), where p is the probability that a detection is correct and x is the confidence score itself.':
+      'BirdScore ajusta una regressió logística per espècie per màxima versemblança, sense penalització: p = 1 / (1 + exp(−(b0 + b1 · x))), on p és la probabilitat que una detecció sigui correcta i x és la mateixa puntuació de confiança.',
+    'The band is the 95% Wald interval, computed on the logit scale. A threshold is the score at which the curve reaches the chosen probability, and its interval runs between the scores at which the band reaches it. Both treat clips as independent. Clips from one recording or night often are not, so the real uncertainty can be larger.':
+      "La banda és l'interval de Wald del 95 %, calculat a l'escala logit. Un llindar és la puntuació on la corba arriba a la probabilitat triada, i el seu interval va d'una a l'altra de les puntuacions on la banda hi arriba. Tots dos tracten els clips com a independents. Els clips d'una mateixa gravació o nit sovint no ho són, de manera que la incertesa real pot ser més gran.",
+    'The curve describes the detections you checked: this species, this model and these recordings. It is drawn only across the scores you checked. It estimates how often a detection at a given score is correct, which is a kind of precision. It says nothing about the calls the model missed (recall), which statisticians usually call the true positive rate.':
+      "La corba descriu les deteccions que has revisat: aquesta espècie, aquest model i aquestes gravacions. Només es dibuixa dins de les puntuacions que has revisat. Estima amb quina freqüència és correcta una detecció amb una puntuació donada, que és una forma de precisió. No diu res dels cants que el model no ha detectat (l'exhaustivitat o recall), que en estadística se sol anomenar taxa de veritables positius.",
+    'Preparing the image…': "S'està preparant la imatge…",
+    'Preparing the images…': "S'estan preparant les imatges…",
+    'The image is too large at this resolution. Choose a lower one.': "La imatge és massa gran amb aquesta resolució. Tria'n una de més baixa.",
+    // The plot
+    'Logistic regression': 'Regressió logística',
+    '95% confidence band': 'Banda de confiança del 95 %',
+    'Observed share of positives': 'Proporció observada de positius',
+    'No curve can be fitted': 'No es pot ajustar cap corba',
+    'Logistic regressions': 'Regressions logístiques',
+    '{n} positive': '{n} positius',
+    '{n} negative': '{n} negatius',
+    '1 positive': '1 positiu',
+    '1 negative': '1 negatiu',
+  };
+
+  const DICTIONARIES = { es: ES, ca: CA };
+  const localeOf = (language) => LOCALES[language] ?? LOCALES.en;
   const fill = (s, vars) => (vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m)) : s);
-  const tIn = (language, key, vars) => fill((language === 'es' && ES[key]) || key, vars);
+  const tIn = (language, key, vars) => fill(DICTIONARIES[language]?.[key] || key, vars);
   const t = (key, vars) => tIn(lang, key, vars);
-  const numIn = (language, x, digits, most = digits) => Number(x).toLocaleString(language === 'es' ? 'es-ES' : 'en-GB',
+  const numIn = (language, x, digits, most = digits) => Number(x).toLocaleString(localeOf(language),
     digits == null ? { maximumFractionDigits: 3 } : { minimumFractionDigits: digits, maximumFractionDigits: most });
   const num = (x, digits, most) => numIn(lang, x, digits, most);
   const tn = (n, one, other, vars) => t(n === 1 ? one : other, { n: num(n), ...vars });
@@ -233,9 +462,9 @@ const I18n = (() => {
     }
   }
   function setLang(next) {
-    lang = next === 'es' ? 'es' : 'en';
+    lang = next in LOCALES ? next : 'en';
     try { localStorage.setItem('birdscore.lang', lang); } catch { /* storage blocked */ }
     applyLang();
   }
-  return { ES, t, tn, tIn, num, numIn, getLang: () => lang, setLang, applyLang };
+  return { ES, CA, t, tn, tIn, num, numIn, localeOf, getLang: () => lang, setLang, applyLang };
 })();
