@@ -10,11 +10,12 @@
 <link rel="icon" type="image/svg+xml" href="icons/logo.svg">
 <!-- The saved day or night choice, applied before the page is drawn so it does not flash -->
 <script>try { const t = localStorage.getItem('birdscore.theme'); if (t) document.documentElement.dataset.theme = t; } catch { }</script>
-<link rel="stylesheet" href="style.css">
-<script src="core.js" defer></script>
-<script src="plot.js" defer></script>
-<script src="i18n.js" defer></script>
-<script src="app.js" defer></script>
+<!-- Publishing turns ?v=dev into the commit (pages.yml), so that a browser never runs this page with old cached scripts -->
+<link rel="stylesheet" href="style.css?v=dev">
+<script src="core.js?v=dev" defer></script>
+<script src="plot.js?v=dev" defer></script>
+<script src="i18n.js?v=dev" defer></script>
+<script src="app.js?v=dev" defer></script>
 </head>
 <body>
 <svg width="0" height="0" class="defs" aria-hidden="true">

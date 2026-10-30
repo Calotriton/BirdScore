@@ -1,11 +1,16 @@
 """The real page in Edge: from folders or tables to the plots and files. All data here is synthetic."""
 import csv
 import datetime
+import http.server
 import io
 import math
+import os
 import re
+import shutil
 import struct
+import threading
 import zipfile
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -814,6 +819,105 @@ def test_every_control_has_a_name(page, one_species):
       .filter((e) => !(e.getAttribute('aria-label') || e.textContent.trim() || e.labels?.length || e.getAttribute('aria-labelledby')))
       .map((e) => e.outerHTML.slice(0, 80))""")
     assert not nameless, nameless
+
+
+def test_every_plot_setting_redraws_at_once(page, tmp_path):
+    """After the first Generate, every setting that shows on the plot changes it with no further click."""
+    for i, name in enumerate(["Turdus merula", "Parus major"]):
+        make_clips(tmp_path / str(i), n=80, seed=i + 1)
+        add_species(page, i, name, tmp_path / str(i))
+    page.click("#generate")
+    page.wait_for_selector(".plot-canvas svg")
+    page.click(".panel details.advanced summary")
+
+    def add(field, button, value):
+        page.fill(field, value)
+        page.click(button)
+
+    def amount():
+        page.locator("#jitter-amount").evaluate("(e) => { e.value = 0.2; e.dispatchEvent(new Event('input', { bubbles: true })); }")
+
+    settings = {
+        "a probability chip": lambda: page.click('#target-chips [data-value="0.95"]'),
+        "another probability": lambda: add("#target-new", "#target-add", "0.8"),
+        "a score": lambda: add("#score-new", "#score-add", "0.5"),
+        "title": lambda: page.locator("#title-list input").nth(0).fill("New title"),
+        "subtitle": lambda: page.locator("#title-list input").nth(1).fill("New subtitle"),
+        "italics": lambda: page.uncheck("#italic"),
+        "title in the centre": lambda: page.check('input[name="title-align"][value="center"]'),
+        "title on the right": lambda: page.check('input[name="title-align"][value="right"]'),
+        "totals": lambda: page.uncheck("#show-counts"),
+        "legend, points": lambda: page.uncheck("#legend-points"),
+        "legend, curve": lambda: page.uncheck("#legend-curve"),
+        "legend, band": lambda: page.uncheck("#legend-band"),
+        "legend, threshold": lambda: page.uncheck("#legend-threshold"),
+        "x axis": lambda: page.fill("#x-label", "X name"),
+        "y axis": lambda: page.fill("#y-label", "Y name"),
+        "jitter amount": amount,
+        "jitter": lambda: page.uncheck("#jitter"),
+        "colour-blind colours": lambda: page.check("#colour-blind"),
+        "plot language": lambda: page.select_option("#plot-lang", "ca"),
+        "score scale": lambda: page.select_option("#scale", "raw"),
+        "band": lambda: page.uncheck("#band"),
+        "observed share": lambda: page.check("#observed"),
+        "legend, observed share": lambda: page.uncheck("#legend-observed"),
+        "one image with all species": lambda: page.check('input[name="layout"][value="grid"]'),
+        "columns": lambda: page.fill("#cols", "1"),
+        "rows": lambda: page.fill("#rows", "3"),
+        "image title": lambda: page.fill("#figure-title", "Image title"),
+        "image subtitle": lambda: page.fill("#figure-subtitle", "Image subtitle"),
+    }
+    for name, change in settings.items():
+        before = svg_of(page)
+        change()
+        try:
+            page.wait_for_function("(b) => document.querySelector('.plot-canvas svg').outerHTML !== b", arg=before, timeout=3000)
+        except Exception:
+            pytest.fail(f"{name} did not change the plot")
+    assert page.locator("#generate").is_enabled()
+
+
+def test_the_page_links_are_stamped_when_published():
+    html = (APP / "index.html").read_text(encoding="utf-8")
+    links = re.findall(r'(?:src|href)="([\w./-]+\.(?:js|css)[^"]*)"', html)
+    assert len(links) == 5 and all(link.endswith("?v=dev") for link in links), links
+    workflow = (APP.parent / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
+    assert 's/?v=dev/?v=${GITHUB_SHA::8}/g' in workflow
+
+
+def test_a_new_version_never_runs_old_scripts(browser, tmp_path):
+    """Pages lets browsers keep each file for 10 minutes, so a reload after a push can get the new page and old scripts."""
+    class Pages(http.server.SimpleHTTPRequestHandler):
+        def end_headers(self):
+            self.send_header("Cache-Control", "max-age=600")
+            super().end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    folder = tmp_path / "site"
+    shutil.copytree(APP, folder)
+
+    def publish(build, stamp_time):
+        page_file, script = folder / "index.html", folder / "app.js"
+        page_file.write_text((APP / "index.html").read_text(encoding="utf-8").replace("?v=dev", f"?v={build}"), encoding="utf-8")
+        script.write_text((APP / "app.js").read_text(encoding="utf-8") + f"\nwindow.BUILD = '{build}';\n", encoding="utf-8")
+        for path in (page_file, script):
+            os.utime(path, (stamp_time, stamp_time))
+
+    now = int(os.path.getmtime(APP / "index.html"))
+    publish("one", now - 7200)
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), partial(Pages, directory=str(folder)))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    context = browser.new_context()
+    page = context.new_page()
+    page.goto(f"http://127.0.0.1:{server.server_port}/")
+    assert page.evaluate("window.BUILD") == "one"
+    publish("two", now - 3600)
+    page.reload()
+    assert page.evaluate("window.BUILD") == "two"
+    context.close()
+    server.shutdown()
 
 
 def test_nothing_is_sent_anywhere(browser, site, tmp_path):
